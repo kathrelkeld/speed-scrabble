@@ -1,0 +1,11 @@
+.tile {
+    color: white;
+    background-color: green;
+    width: 64px;
+    height: 64px;
+    line-height: 64px;
+    text-align: center;
+    font-size: 32;
+    font-weight: bold;
+    position: absolute;
+}
