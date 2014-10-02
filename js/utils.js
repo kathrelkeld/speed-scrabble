@@ -18,6 +18,11 @@ function vScale(a, c) {
     return vec(a.x * c, a.y * c);
 }
 
+// Return whether the elements of vectors a and b are equivalent.
+function vEquals(a, b) {
+    return ((a.x == b.x) && (a.y == b.y));
+}
+
 // Create a div with the given className and append to given parentDiv.
 function createDiv(className, parentDiv) {
     var div = document.createElement('div');

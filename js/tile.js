@@ -1,25 +1,28 @@
-function Tile(position, value, game, grid) {
+function Tile(value, game, grid) {
     this.game = game;
     this.grid = grid;
-    this.position = position;
+    this.position = vec(0, 0);
     this.value = value;
     this.div = createDiv('tile', grid.div);
 
     // Customize tile div.
     this.div.innerHTML = value;
     this.div.addEventListener('mousedown', this.mouseDown.bind(this));
-    moveDiv(this.div, vScale(position, game.cellSize));
     resizeDiv(this.div, vec(game.cellSize, game.cellSize));
 
     // Add values needed for mouse movement.
     this.moveListener = this.mouseMove.bind(this);
     this.upListener = this.mouseUp.bind(this);
-    this.beforeMovePos;
+}
+
+// Remove a given tile from its parent grid.
+Tile.prototype.removeTile = function() {
+    this.grid.tiles[this.position.x][this.position.y] = null;
 }
 
 // onMouseDown event handler.  Always active for this tile.
 Tile.prototype.mouseDown = function(e) {
-    this.beforeMovePos = getDivPos(this.div);
+    this.removeTile();
     window.addEventListener('mousemove', this.moveListener);
     window.addEventListener('mouseup', this.upListener);
 }
@@ -37,10 +40,4 @@ Tile.prototype.mouseUp = function(e) {
     var halfCellSize = this.game.cellSize / 2;
     var centerPos = vAdd(getDivPos(this.div), vec(halfCellSize, halfCellSize));
     var cell = this.game.moveTileTo(this, centerPos);
-    if (!cell) {
-        var newPos = this.beforeMovePos;
-    } else {
-        var newPos = getDivPos(cell.div);
-    }
-    moveDiv(this.div, newPos);
 }
