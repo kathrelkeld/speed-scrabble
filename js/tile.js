@@ -23,6 +23,7 @@ Tile.prototype.removeTile = function() {
 // onMouseDown event handler.  Always active for this tile.
 Tile.prototype.mouseDown = function(e) {
     this.removeTile();
+    this.div.classList.add('moving');
     window.addEventListener('mousemove', this.moveListener);
     window.addEventListener('mouseup', this.upListener);
 }
@@ -35,6 +36,7 @@ Tile.prototype.mouseMove = function(e) {
 
 // onMouseUp event handler.  Active only during mouse move.
 Tile.prototype.mouseUp = function(e) {
+    this.div.classList.remove('moving');
     window.removeEventListener('mousemove', this.moveListener);
     window.removeEventListener('mouseup', this.upListener);
     var halfCellSize = this.game.cellSize / 2;
