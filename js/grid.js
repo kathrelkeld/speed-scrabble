@@ -1,7 +1,8 @@
-function Grid(game, size) {
+function Grid(game, size, expands) {
     this.game = game;
     this.size = size; // (x, y) of grid dimensions.
     this.div = createDiv('grid', game.div);
+    this.expands = expands;
 
     // Customize grid div.
     resizeDiv(this.div, vScale(size, game.cellSize));
@@ -42,6 +43,78 @@ Grid.prototype.insertTile = function(tile, position) {
     var gridCorner = getDivPos(this.div);
     var newPosition = vAdd(gridCorner, vScale(position, this.game.cellSize));
     moveDiv(tile.div, newPosition);
+    this.centerTiles();
+}
+
+// Shift entire board in one direction.
+Grid.prototype.shiftTiles = function(direction) {
+    var gridCorner = getDivPos(this.div);
+    if (direction == 'r' || direction == 'l') {
+        var emptyRow = [];
+        for (var i=0; i < this.size.y; i++) {
+            emptyRow.push(null);
+        }
+        if (direction == 'r') {
+            this.tiles.pop();
+            this.tiles.unshift(emptyRow);
+        } else {
+            this.tiles.shift();
+            this.tiles.push(emptyRow);
+        }
+    }
+    for (var i=0; i < this.size.x; i++) {
+        if (direction == 'u') {
+            this.tiles[i].shift();
+            this.tiles[i].push(null);
+        } else if (direction == 'd') {
+            this.tiles[i].pop();
+            this.tiles[i].unshift(null);
+        }
+        for (var j=0; j < this.size.y; j++) {
+            var tile = this.tiles[i][j];
+            if (tile) {
+                console.log('moving tile', tile.value);
+                tile.position = vec(i, j);
+                var newPosition = vAdd(gridCorner,
+                        vScale(tile.position, this.game.cellSize));
+                moveDiv(tile.div, newPosition);
+            }
+        }
+    }
+}
+
+// Recenter tiles if needed.
+Grid.prototype.centerTiles = function() {
+    if (!this.expands) {
+        return;
+    }
+    var left = this.size.x - 1;
+    var top = this.size.y - 1;
+    var right = 0;
+    var bottom = 0;
+    for (var i=0; i < this.size.x; i++) {
+        for (var j=0; j < this.size.y; j++) {
+            var tile = this.tiles[i][j];
+            if (tile) {
+                left = Math.min(left, tile.position.x);
+                right = Math.max(right, tile.position.x);
+                top = Math.min(top, tile.position.y);
+                bottom = Math.max(bottom, tile.position.y);
+            }
+        }
+    }
+    if (left == 0) {
+        this.shiftTiles('r');
+    }
+    if (right == this.size.x - 1) {
+        this.shiftTiles('l');
+    }
+    if (top == 0) {
+        this.shiftTiles('d');
+    }
+    if (bottom == this.size.y - 1) {
+        this.shiftTiles('u');
+    }
 }
 
 // Returns true/false if the position is/isn't within the grid.

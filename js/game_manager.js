@@ -9,9 +9,9 @@ function GameManager(size, startTiles) {
 
 // Setup game.
 GameManager.prototype.setup = function() {
-    this.tray = new Grid(this, { x: this.startTiles, y: 1 });
+    this.tray = new Grid(this, vec(this.startTiles,1), false);
     this.tray.div.style.backgroundColor = 'red';
-    this.grid = new Grid(this, { x: this.size, y: this.size });
+    this.grid = new Grid(this, vec(this.size, this.size), true);
     this.addStartTiles();
 }
 
