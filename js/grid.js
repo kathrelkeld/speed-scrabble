@@ -43,7 +43,7 @@ Grid.prototype.insertTile = function(tile, position) {
     var gridCorner = getDivPos(this.div);
     var newPosition = vAdd(gridCorner, vScale(position, this.game.cellSize));
     moveDiv(tile.div, newPosition);
-    this.centerTiles();
+//    this.centerTiles();
 }
 
 // Shift entire board in one direction.

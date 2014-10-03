@@ -10,7 +10,6 @@ function GameManager(size, startTiles) {
 // Setup game.
 GameManager.prototype.setup = function() {
     this.tray = new Grid(this, vec(this.startTiles,1), false);
-    this.tray.div.style.backgroundColor = 'red';
     this.grid = new Grid(this, vec(this.size, this.size), true);
     this.addStartTiles();
 }
@@ -18,7 +17,7 @@ GameManager.prototype.setup = function() {
 // Add initial tiles.
 GameManager.prototype.addStartTiles = function() {
     var value = 'A';
-    for (var i=0; i<4; i++) {
+    for (var i=0; i<12; i++) {
         var nextValue = String.fromCharCode(value.charCodeAt(0) + i)
         var tile = new Tile(nextValue, this, this.tray);
         this.tray.insertTile(tile, vec(i, 0));
@@ -32,14 +31,11 @@ GameManager.prototype.moveTileTo = function(tile, position) {
         this.tray.addToNearestEmptyCell(tile, position)) {
         return;
     }
-    //if (this.tray.addToNearestEmptyCell(tile, position)) {
-        //return;
-    //}
     this.tray.addToFirstEmptyCell(tile);
 }
 
 
 window.requestAnimationFrame(function() {
     console.log("Starting Game!")
-    new GameManager(12, 4);
+    new GameManager(12, 12);
 });
