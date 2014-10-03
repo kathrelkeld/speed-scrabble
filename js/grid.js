@@ -142,7 +142,10 @@ Grid.prototype.addToNearestEmptyCell = function(tile, position) {
     if (this.tiles[intCoords.x][intCoords.y] == null) {
         this.insertTile(tile, intCoords);
     } else {
-        // Return tile to former location.
+        // Return tile to former location if this location isn't the tray.
+        if (this == this.game.tray) {
+            return false;
+        }
         tile.grid.insertTile(tile, tile.position);
     }
     return true;
