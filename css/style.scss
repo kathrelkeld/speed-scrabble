@@ -7,25 +7,32 @@
   @include user-select(none);
 }
 
+body {
+  background-color: #eee;
+}
+
 .tile {
   color: white;
-  background-color: green;
+  background-color: rgba(33, 134, 207, 0.9);
   line-height: 64px;
   text-align: center;
   font-size: 32;
   font-weight: bold;
   position: absolute;
-  border: 1px solid;
   cursor: move;
   z-index: 10;
 
-  .moving {
+  // Make the tile just smaller than a cell, so it doesn't overlap the cell's 1px border.
+  border: 1px solid rgba(0, 0, 0, 0);
+  background-clip: padding-box;
+
+  &.moving {
     z-index: 15;
   }
 }
 
 .cell {
-  background-color: blue;
+  background-color: #d9d9d9;
   position: absolute;
-  border: 1px solid black;
+  border: 1px solid #0861A1;
 }
