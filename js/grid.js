@@ -54,7 +54,8 @@ Grid.prototype.isWithinBounds = function(position) {
 }
 
 // Add the given tile to the nearest tile to position, if possible.
-// Return true or false for success.
+// If the tile is occupied, return tile to former spot.
+// Return true or false for success or failure.
 Grid.prototype.addToNearestEmptyCell = function(tile, position) {
     if (!this.isWithinBounds(position)) {
         return null;
@@ -67,11 +68,11 @@ Grid.prototype.addToNearestEmptyCell = function(tile, position) {
     // Make sure nearest is empty and not this tile.
     if (this.tiles[intCoords.x][intCoords.y] == null) {
         this.insertTile(tile, intCoords);
-        return true;
     } else {
-        console.log('This location was not empty!');
-        return false;
+        // Return tile to former location.
+        tile.grid.insertTile(tile, tile.position);
     }
+    return true;
 }
 
 // Find the first available empty cell and add the tile to it.
