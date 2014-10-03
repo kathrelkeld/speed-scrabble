@@ -47,7 +47,5 @@ function resizeDiv(div, dimensions) {
 
 // Get the position of the given div.
 function getDivPos(div) {
-    var rect = div.getBoundingClientRect();
-    return vec(rect.left + window.scrollX, rect.top + window.scrollY);
+    return vec(div.offsetLeft, div.offsetTop);
 }
-
