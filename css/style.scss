@@ -28,6 +28,11 @@ body {
 
   &.moving {
     z-index: 15;
+    border: none;
+    box-shadow: 3px 5px 10px #999;
+    // Zoom in and add a little shadow for depth
+    @include transform(scale(1.2));
+    @include transition(transform 75ms ease-in-out);
   }
 }
 
