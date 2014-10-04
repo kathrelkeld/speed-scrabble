@@ -49,3 +49,8 @@ function resizeDiv(div, dimensions) {
 function getDivPos(div) {
   return vec(div.offsetLeft, div.offsetTop);
 }
+
+// Remove a div from its parent.
+function removeDiv(div) {
+  div.parentNode.removeChild(div);
+}

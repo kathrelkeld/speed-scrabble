@@ -1,4 +1,5 @@
 function GameManager(size, startTiles) {
+  gamemanager = this;
   this.size = size;
   this.startTiles = startTiles;
   this.cellSize = 64;
@@ -11,7 +12,7 @@ function GameManager(size, startTiles) {
 GameManager.prototype.setup = function() {
   this.tray = new Grid(this, vec(this.startTiles,1), false);
   this.grid = new Grid(this, vec(this.size, this.size), true);
-  addButtonHandlers(this);
+  this.addButtonHandlers(this);
   this.requestTiles();
 }
 
@@ -46,28 +47,38 @@ GameManager.prototype.requestTiles = function() {
   xmlhttp.send();
 }
 
+// Remove game divs from board.
+GameManager.prototype.reload = function() {
+  console.log("Reloading game board!");
+  this.grid.removeAllTiles();
+  this.tray.removeAllTiles();
+  this.requestTiles()
+}
+
 // Add onclick handlers to the various game buttons
-function addButtonHandlers(game) {
+GameManager.prototype.addButtonHandlers = function() {
   document.getElementById('reset').onclick = function() {
     console.log("TODO: reset tiles")
   };
   document.getElementById('add_tile').onclick = function() {
     console.log("TODO: add tile")
   };
-  document.getElementById('reload').onclick = newGame;
+  document.getElementById('reload').onclick = function() {
+    gamemanager.reload();
+  };
   var directions = ["left", "right", "down", "up"];
   directions.forEach(function(entry) {
     document.getElementById(entry).onclick = function() {
-        game.grid.shiftTiles(entry);
+        gamemanager.grid.shiftTiles(entry);
     };
   });
 }
 
-function newGame() {
-  gamemanager = new GameManager(12, 12);
+function newGameManager() {
+  new GameManager(12, 12);
 }
 
 window.requestAnimationFrame(function() {
   console.log("Starting Game!")
-  newGame()
+  newGameManager()
 });

@@ -35,6 +35,19 @@ Grid.prototype.setup = function() {
   }
 }
 
+// Destroy all current tiles.
+Grid.prototype.removeAllTiles = function() {
+  for (var x = 0; x < this.size.x; x++) {
+    for (var y = 0; y < this.size.y; y++) {
+      var tile = this.tiles[x][y];
+      if (tile) {
+        removeDiv(tile.div);
+        this.tiles[x][y] = null;
+      }
+    }
+  }
+}
+
 // Insert a tile at a given position.
 Grid.prototype.insertTile = function(tile, position) {
   this.tiles[position.x][position.y] = tile;
