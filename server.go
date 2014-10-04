@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"math/rand"
 	"net/http"
@@ -20,9 +21,20 @@ func newTiles() []string {
 	return tiles
 }
 
+func handleNewTiles(w http.ResponseWriter, req *http.Request) {
+	tiles := newTiles()[:12]
+	b, err := json.Marshal(tiles)
+	if err != nil {
+		log.Println("error:", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+	log.Println("Sending Tiles:", tiles)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
 func main() {
-	tiles := newTiles()
-	log.Println(tiles)
 
 	const addr = "localhost:8080"
 	fileserver := http.FileServer(http.Dir("public"))
@@ -30,6 +42,7 @@ func main() {
 
 	http.Handle("/", redirect)
 	http.Handle("/public/", http.StripPrefix("/public/", fileserver))
+	http.HandleFunc("/tiles", handleNewTiles)
 
 	log.Println("Now listening on", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
@@ -62,4 +75,33 @@ var freqMap = map[string]int{
 	"X": 2,
 	"Y": 3,
 	"Z": 2,
+}
+
+var pointValues = map[string]int{
+	"A": 1,
+	"B": 3,
+	"C": 3,
+	"D": 2,
+	"E": 1,
+	"F": 4,
+	"G": 2,
+	"H": 4,
+	"I": 1,
+	"J": 8,
+	"K": 5,
+	"L": 1,
+	"M": 3,
+	"N": 1,
+	"O": 1,
+	"P": 3,
+	"Q": 10,
+	"R": 1,
+	"S": 1,
+	"T": 1,
+	"U": 1,
+	"V": 4,
+	"W": 4,
+	"X": 8,
+	"Y": 4,
+	"Z": 10,
 }
