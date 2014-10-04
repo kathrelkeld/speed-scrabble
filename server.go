@@ -5,7 +5,40 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sync"
 )
+
+var globalGame Game = makeNewGame(1)
+
+type Game struct {
+	id          int
+	tiles       []string
+	tilesServed int
+	m           sync.Mutex
+}
+
+func makeNewGame(id int) Game {
+	return Game{id: id, tiles: newTiles(), tilesServed: 0, m: sync.Mutex{}}
+}
+
+func (g *Game) getInitialTiles() []string {
+	g.m.Lock()
+	g.tilesServed = 12
+	g.m.Unlock()
+	return g.tiles[:12]
+}
+
+func (g *Game) getNextTile() string {
+	if g.tilesServed == len(g.tiles) {
+		log.Println("No tiles remaining to send!")
+		return ""
+	}
+	g.m.Lock()
+	result := g.tiles[g.tilesServed]
+	g.tilesServed += 1
+	g.m.Unlock()
+	return result
+}
 
 func newTiles() []string {
 	var tiles []string
@@ -21,21 +54,35 @@ func newTiles() []string {
 	return tiles
 }
 
-func handleNewTiles(w http.ResponseWriter, req *http.Request) {
-	tiles := newTiles()[:12]
-	b, err := json.Marshal(tiles)
+func sendJSON(v interface{}, w http.ResponseWriter) {
+	b, err := json.Marshal(v)
 	if err != nil {
 		log.Println("error:", err)
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
-	log.Println("Sending Tiles:", tiles)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
 }
 
-func main() {
+func handleAddTile(w http.ResponseWriter, req *http.Request) {
+	tile := globalGame.getNextTile()
+	if tile == "" {
+		http.Error(w, "No more tiles!", http.StatusBadRequest)
+		return
+	}
+	log.Println("Sending Tile:", tile)
+	sendJSON(tile, w)
+}
 
+func handleNewTiles(w http.ResponseWriter, req *http.Request) {
+	globalGame = makeNewGame(globalGame.id + 1)
+	tiles := globalGame.getInitialTiles()
+	log.Println("Sending Tiles:", tiles)
+	sendJSON(tiles, w)
+}
+
+func main() {
 	const addr = "localhost:8080"
 	fileserver := http.FileServer(http.Dir("public"))
 	redirect := http.RedirectHandler("public/scrabble.html", http.StatusFound)
@@ -43,6 +90,7 @@ func main() {
 	http.Handle("/", redirect)
 	http.Handle("/public/", http.StripPrefix("/public/", fileserver))
 	http.HandleFunc("/tiles", handleNewTiles)
+	http.HandleFunc("/add_tile", handleAddTile)
 
 	log.Println("Now listening on", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
