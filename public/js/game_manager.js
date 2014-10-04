@@ -11,6 +11,7 @@ function GameManager(size, startTiles) {
 GameManager.prototype.setup = function() {
   this.tray = new Grid(this, vec(this.startTiles,1), false);
   this.grid = new Grid(this, vec(this.size, this.size), true);
+  addButtonHandlers(this);
   this.requestTiles();
 }
 
@@ -34,19 +35,39 @@ GameManager.prototype.moveTileTo = function(tile, position) {
 
 // Send request for tiles and add them.
 GameManager.prototype.requestTiles = function() {
-
   var xmlhttp = new XMLHttpRequest();
   xmlhttp.onreadystatechange = function() {
     if (xmlhttp.readyState == 4 && xmlhttp.status == 200){
       tiles = JSON.parse(xmlhttp.responseText);
-      gameManager.addStartTiles(tiles)
+      gamemanager.addStartTiles(tiles)
     }
   }
   xmlhttp.open("GET", "/tiles", true);
   xmlhttp.send();
 }
 
+// Add onclick handlers to the various game buttons
+function addButtonHandlers(game) {
+  document.getElementById('reset').onclick = function() {
+    console.log("TODO: reset tiles")
+  };
+  document.getElementById('add_tile').onclick = function() {
+    console.log("TODO: add tile")
+  };
+  document.getElementById('reload').onclick = newGame;
+  var directions = ["left", "right", "down", "up"];
+  directions.forEach(function(entry) {
+    document.getElementById(entry).onclick = function() {
+        game.grid.shiftTiles(entry);
+    };
+  });
+}
+
+function newGame() {
+  gamemanager = new GameManager(12, 12);
+}
+
 window.requestAnimationFrame(function() {
   console.log("Starting Game!")
-  gameManager = new GameManager(12, 12);
+  newGame()
 });

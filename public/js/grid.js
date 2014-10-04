@@ -49,12 +49,12 @@ Grid.prototype.insertTile = function(tile, position) {
 // Shift entire board in one direction.
 Grid.prototype.shiftTiles = function(direction) {
   var gridCorner = getDivPos(this.div);
-  if (direction == 'r' || direction == 'l') {
+  if (direction == "right" || direction == "left") {
     var emptyRow = [];
     for (var i=0; i < this.size.y; i++) {
       emptyRow.push(null);
     }
-    if (direction == 'r') {
+    if (direction == "right") {
       this.tiles.pop();
       this.tiles.unshift(emptyRow);
     } else {
@@ -63,57 +63,22 @@ Grid.prototype.shiftTiles = function(direction) {
     }
   }
   for (var i=0; i < this.size.x; i++) {
-    if (direction == 'u') {
+    if (direction == "up") {
       this.tiles[i].shift();
       this.tiles[i].push(null);
-    } else if (direction == 'd') {
+    } else if (direction == "down") {
       this.tiles[i].pop();
       this.tiles[i].unshift(null);
     }
     for (var j=0; j < this.size.y; j++) {
       var tile = this.tiles[i][j];
       if (tile) {
-        console.log('moving tile', tile.value);
         tile.position = vec(i, j);
         var newPosition = vAdd(gridCorner,
             vScale(tile.position, this.game.cellSize));
         moveDiv(tile.div, newPosition);
       }
     }
-  }
-}
-
-// Recenter tiles if needed.
-Grid.prototype.centerTiles = function() {
-  if (!this.expands) {
-    return;
-  }
-  var left = this.size.x - 1;
-  var top = this.size.y - 1;
-  var right = 0;
-  var bottom = 0;
-  for (var i=0; i < this.size.x; i++) {
-    for (var j=0; j < this.size.y; j++) {
-      var tile = this.tiles[i][j];
-      if (tile) {
-        left = Math.min(left, tile.position.x);
-        right = Math.max(right, tile.position.x);
-        top = Math.min(top, tile.position.y);
-        bottom = Math.max(bottom, tile.position.y);
-      }
-    }
-  }
-  if (left == 0) {
-    this.shiftTiles('r');
-  }
-  if (right == this.size.x - 1) {
-    this.shiftTiles('l');
-  }
-  if (top == 0) {
-    this.shiftTiles('d');
-  }
-  if (bottom == this.size.y - 1) {
-    this.shiftTiles('u');
   }
 }
 
