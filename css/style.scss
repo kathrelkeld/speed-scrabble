@@ -1,0 +1,43 @@
+@import "bourbon/bourbon";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  @include user-select(none);
+}
+
+body {
+  background-color: #eee;
+}
+
+.tile {
+  color: white;
+  background-color: rgba(33, 134, 207, 0.9);
+  line-height: 64px;
+  text-align: center;
+  font-size: 32;
+  font-weight: bold;
+  position: absolute;
+  cursor: move;
+  z-index: 10;
+
+  // Make the tile just smaller than a cell, so it doesn't overlap the cell's 1px border.
+  border: 1px solid rgba(0, 0, 0, 0);
+  background-clip: padding-box;
+
+  &.moving {
+    z-index: 15;
+    border: none;
+    box-shadow: 3px 5px 10px #999;
+    // Zoom in and add a little shadow for depth
+    @include transform(scale(1.2));
+    @include transition(transform 75ms ease-in-out);
+  }
+}
+
+.cell {
+  background-color: #d9d9d9;
+  position: absolute;
+  border: 1px solid #0861A1;
+}
