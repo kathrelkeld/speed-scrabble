@@ -1,2 +1,2 @@
-css/style.css: css/style.scss
-	sassc css/style.scss css/style.css
+public/css/style.css: public/css/style.scss
+	sassc public/css/style.scss public/css/style.css
