@@ -54,3 +54,16 @@ function getDivPos(div) {
 function removeDiv(div) {
   div.parentNode.removeChild(div);
 }
+
+// Request json results from given page and apply given handler.
+function getJSON(page, handler) {
+  var xmlhttp = new XMLHttpRequest();
+  xmlhttp.onreadystatechange = function() {
+    if (xmlhttp.readyState == 4 && xmlhttp.status == 200){
+      response = JSON.parse(xmlhttp.responseText);
+      handler(response);
+    }
+  }
+  xmlhttp.open("GET", page, true);
+  xmlhttp.send();
+}

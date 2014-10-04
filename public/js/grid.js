@@ -56,7 +56,6 @@ Grid.prototype.insertTile = function(tile, position) {
   var gridCorner = getDivPos(this.div);
   var newPosition = vAdd(gridCorner, vScale(position, this.game.cellSize));
   moveDiv(tile.div, newPosition);
-  //    this.centerTiles();
 }
 
 // Shift entire board in one direction.
@@ -127,6 +126,7 @@ Grid.prototype.addToNearestEmptyCell = function(tile, position) {
     tile.grid.insertTile(tile, tile.position);
   }
   return true;
+  // TODO: expand on isFull case
 }
 
 // Find the first available empty cell and add the tile to it.

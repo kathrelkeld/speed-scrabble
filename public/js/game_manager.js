@@ -16,11 +16,11 @@ GameManager.prototype.setup = function() {
   this.requestTiles();
 }
 
-// Add initial tiles.
-GameManager.prototype.addStartTiles = function(tiles) {
+// Add a list of tiles.
+GameManager.prototype.addTiles = function(tiles) {
   for (var i=0; i<tiles.length; i++) {
     var tile = new Tile(tiles[i], this, this.tray);
-    this.tray.insertTile(tile, vec(i, 0));
+    this.tray.addToFirstEmptyCell(tile);
   }
 }
 
@@ -34,17 +34,18 @@ GameManager.prototype.moveTileTo = function(tile, position) {
   this.tray.addToFirstEmptyCell(tile);
 }
 
-// Send request for tiles and add them.
+// Send request for new Tiles and add them.
 GameManager.prototype.requestTiles = function() {
-  var xmlhttp = new XMLHttpRequest();
-  xmlhttp.onreadystatechange = function() {
-    if (xmlhttp.readyState == 4 && xmlhttp.status == 200){
-      tiles = JSON.parse(xmlhttp.responseText);
-      gamemanager.addStartTiles(tiles)
-    }
-  }
-  xmlhttp.open("GET", "/tiles", true);
-  xmlhttp.send();
+  getJSON("/tiles", function(tiles) {
+    gamemanager.addTiles(tiles);
+  });
+}
+
+// Send request for new tile and add it.
+GameManager.prototype.requestNewTile = function() {
+  getJSON("/add_tile", function(tile) {
+    gamemanager.addTiles([tile]);
+  });
 }
 
 // Remove game divs from board.
@@ -57,13 +58,14 @@ GameManager.prototype.reload = function() {
 
 // Add onclick handlers to the various game buttons
 GameManager.prototype.addButtonHandlers = function() {
-  document.getElementById('reset').onclick = function() {
-    console.log("TODO: reset tiles")
+  document.getElementById("reset").onclick = function() {
+    //TODO: reset board
+    console.log("TODO: add reset board functionality")
   };
-  document.getElementById('add_tile').onclick = function() {
-    console.log("TODO: add tile")
+  document.getElementById("add_tile").onclick = function() {
+    gamemanager.requestNewTile()
   };
-  document.getElementById('reload').onclick = function() {
+  document.getElementById("reload").onclick = function() {
     gamemanager.reload();
   };
   var directions = ["left", "right", "down", "up"];
