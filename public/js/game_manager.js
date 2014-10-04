@@ -59,8 +59,7 @@ GameManager.prototype.reload = function() {
 // Add onclick handlers to the various game buttons
 GameManager.prototype.addButtonHandlers = function() {
   document.getElementById("reset").onclick = function() {
-    //TODO: reset board
-    console.log("TODO: add reset board functionality")
+    gamemanager.grid.sendAllTiles(gamemanager.tray)
   };
   document.getElementById("add_tile").onclick = function() {
     gamemanager.requestNewTile()

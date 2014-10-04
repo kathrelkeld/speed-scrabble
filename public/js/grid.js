@@ -48,6 +48,19 @@ Grid.prototype.removeAllTiles = function() {
   }
 }
 
+// Move all tiles to the given grid.
+Grid.prototype.sendAllTiles = function(grid) {
+  for (var x = 0; x < this.size.x; x++) {
+    for (var y = 0; y < this.size.y; y++) {
+      var tile = this.tiles[x][y];
+      if (tile) {
+        this.tiles[x][y] = null;
+        grid.addToFirstEmptyCell(tile);
+      }
+    }
+  }
+}
+
 // Insert a tile at a given position.
 Grid.prototype.insertTile = function(tile, position) {
   this.tiles[position.x][position.y] = tile;
