@@ -93,35 +93,36 @@ func newTiles() []string {
 	return tiles
 }
 
-// Find the tiles connected to the given tile
-func findConnectedTiles(board [][]string, c map[Vec]*[]Vec,
-	tile Vec, compList *[]Vec) {
+type Board [][]string
+
+// Find the tiles connected to the given tile.
+func (b Board) findConnectedTiles(c map[Vec]*[]Vec, tile Vec, found *[]Vec) {
 	_, ok := c[tile]
-	if !ok && tile.x < len(board) && tile.y < len(board[0]) &&
-		tile.x >= 0 && tile.y >= 0 && board[tile.x][tile.y] != "" {
-		c[tile] = compList
-		*compList = append(*compList, tile)
-		findConnectedTiles(board, c, tile.add(Vec{1, 0}), compList)
-		findConnectedTiles(board, c, tile.add(Vec{0, 1}), compList)
-		findConnectedTiles(board, c, tile.add(Vec{-1, 0}), compList)
-		findConnectedTiles(board, c, tile.add(Vec{0, -1}), compList)
+	if !ok && tile.x < len(b) && tile.y < len(b[0]) &&
+		tile.x >= 0 && tile.y >= 0 && b[tile.x][tile.y] != "" {
+		c[tile] = found
+		*found = append(*found, tile)
+		b.findConnectedTiles(c, tile.add(Vec{1, 0}), found)
+		b.findConnectedTiles(c, tile.add(Vec{0, 1}), found)
+		b.findConnectedTiles(c, tile.add(Vec{-1, 0}), found)
+		b.findConnectedTiles(c, tile.add(Vec{0, -1}), found)
 	}
 }
 
 // Find the connected components
-func findComponents(board [][]string) [][]Vec {
+func (b Board) findComponents() [][]Vec {
 	result := [][]Vec{}
-	maxX := len(board)
-	maxY := len(board[0])
+	maxX := len(b)
+	maxY := len(b[0])
 	var i, j int
 	c := make(map[Vec]*[]Vec)
 	for i = 0; i < maxX; i++ {
 		for j = 0; j < maxY; j++ {
 			tile := Vec{i, j}
-			if _, ok := c[tile]; !ok && board[i][j] != "" {
-				var thisCompList []Vec
-				findConnectedTiles(board, c, tile, &thisCompList)
-				result = append(result, thisCompList)
+			if _, ok := c[tile]; !ok && b[i][j] != "" {
+				var thisCompFound []Vec
+				b.findConnectedTiles(c, tile, &thisCompFound)
+				result = append(result, thisCompFound)
 			}
 		}
 	}
@@ -130,7 +131,8 @@ func findComponents(board [][]string) [][]Vec {
 	return result
 }
 
-func verifyComponent(board [][]string, v []Vec) bool {
+// Verify that the given component list has valid words.
+func (b Board) verifyComponent(v []Vec) bool {
 	// Component must be 2 or more tiles.
 	if len(v) <= 1 {
 		return false
