@@ -37,7 +37,7 @@ func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 }
 
 func handleVerifyTiles(w http.ResponseWriter, req *http.Request) {
-	var board []([]string)
+	var board Board
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&board)
 	if err != nil {
@@ -45,7 +45,7 @@ func handleVerifyTiles(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
-	sendJSON(verifyBoard(board), w)
+	sendJSON(board.verifyBoard(), w)
 }
 
 func main() {
