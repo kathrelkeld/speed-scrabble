@@ -79,6 +79,17 @@ func (a Vec) add(b Vec) Vec {
 	return Vec{a.x + b.x, a.y + b.y}
 }
 
+type VecSet map[Vec]struct{}
+
+func (s VecSet) contains(elt Vec) bool {
+	_, ok := s[elt]
+	return ok
+}
+
+func (s VecSet) add(elt Vec) {
+	s[elt] = struct{}{}
+}
+
 func newTiles() []string {
 	var tiles []string
 	for k, v := range freqMap {
@@ -95,34 +106,40 @@ func newTiles() []string {
 
 type Board [][]string
 
+func (b Board) value(v Vec) string {
+	return b[v.x][v.y]
+}
+
 // Find the tiles connected to the given tile.
-func (b Board) findConnectedTiles(c map[Vec]*[]Vec, tile Vec, found *[]Vec) {
-	_, ok := c[tile]
-	if !ok && tile.x < len(b) && tile.y < len(b[0]) &&
-		tile.x >= 0 && tile.y >= 0 && b[tile.x][tile.y] != "" {
-		c[tile] = found
-		*found = append(*found, tile)
-		b.findConnectedTiles(c, tile.add(Vec{1, 0}), found)
-		b.findConnectedTiles(c, tile.add(Vec{0, 1}), found)
-		b.findConnectedTiles(c, tile.add(Vec{-1, 0}), found)
-		b.findConnectedTiles(c, tile.add(Vec{0, -1}), found)
+func (b Board) findConnectedTiles(v Vec, found VecSet) {
+	if !found.contains(v) &&
+		v.x < len(b) && v.y < len(b[0]) &&
+		v.x >= 0 && v.y >= 0 && b.value(v) != "" {
+		found.add(v)
+		b.findConnectedTiles(v.add(Vec{1, 0}), found)
+		b.findConnectedTiles(v.add(Vec{0, 1}), found)
+		b.findConnectedTiles(v.add(Vec{-1, 0}), found)
+		b.findConnectedTiles(v.add(Vec{0, -1}), found)
 	}
 }
 
 // Find the connected components
-func (b Board) findComponents() [][]Vec {
-	result := [][]Vec{}
+func (b Board) findComponents() []VecSet {
+	var result []VecSet
 	maxX := len(b)
 	maxY := len(b[0])
 	var i, j int
-	c := make(map[Vec]*[]Vec)
+	c := make(VecSet)
 	for i = 0; i < maxX; i++ {
 		for j = 0; j < maxY; j++ {
-			tile := Vec{i, j}
-			if _, ok := c[tile]; !ok && b[i][j] != "" {
-				var thisCompFound []Vec
-				b.findConnectedTiles(c, tile, &thisCompFound)
+			v := Vec{i, j}
+			if !c.contains(v) && b.value(v) != "" {
+				thisCompFound := make(VecSet)
+				b.findConnectedTiles(v, thisCompFound)
 				result = append(result, thisCompFound)
+				for elt := range thisCompFound {
+					c.add(elt)
+				}
 			}
 		}
 	}
@@ -132,16 +149,21 @@ func (b Board) findComponents() [][]Vec {
 }
 
 // Verify that the given component list has valid words.
-func (b Board) verifyComponent(v []Vec) bool {
+func (b Board) verifyComponent(comp map[Vec]struct{}) bool {
 	// Component must be 2 or more tiles.
-	if len(v) <= 1 {
+	if len(comp) <= 1 {
 		return false
+	}
+	//across := make(map[Vec]bool)
+	//down := make(map[Vec]bool)
+	for v := range comp {
+		log.Println(v)
 	}
 	return true
 }
 
 func verifyBoard(board [][]string) bool {
-	findComponents(board)
+	Board(board).findComponents()
 	maxX := len(board)
 	maxY := len(board[0])
 	var i, j, k int
