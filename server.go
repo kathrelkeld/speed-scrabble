@@ -10,11 +10,11 @@ import (
 	"sync"
 )
 
-var globalDict map[string]bool = initDictionary("sowpods.txt")
+var globalDict = initDictionary("sowpods.txt")
 
-func initDictionary(filename string) map[string]bool {
+func initDictionary(filename string) map[string]struct{} {
 	log.Println("Initializing dictionary from", filename)
-	d := make(map[string]bool)
+	d := make(map[string]struct{})
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Println("err:", err)
@@ -24,7 +24,7 @@ func initDictionary(filename string) map[string]bool {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		word := scanner.Text()
-		d[word] = true
+		d[word] = struct{}{}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Println("err:", err)
@@ -35,12 +35,11 @@ func initDictionary(filename string) map[string]bool {
 }
 
 func verifyWord(w string) bool {
-	d := globalDict
-	_, found := d[w]
-	return found
+	_, ok := globalDict[w]
+	return ok
 }
 
-var globalGame *Game = makeNewGame(1)
+var globalGame = makeNewGame(1)
 
 type Game struct {
 	id          int
@@ -66,10 +65,9 @@ func (g *Game) getNextTile() string {
 		return ""
 	}
 	g.m.Lock()
-	result := g.tiles[g.tilesServed]
+	defer g.m.Unlock()
 	g.tilesServed += 1
-	g.m.Unlock()
-	return result
+	return g.tiles[g.tilesServed]
 }
 
 func newTiles() []string {
