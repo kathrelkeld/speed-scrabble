@@ -80,20 +80,31 @@ Grid.prototype.shiftTiles = function(direction) {
       emptyRow.push(null);
     }
     if (direction == "right") {
-      this.tiles.pop();
+      var removed = this.tiles.pop();
       this.tiles.unshift(emptyRow);
     } else {
-      this.tiles.shift();
+      var removed = this.tiles.shift();
       this.tiles.push(emptyRow);
+    }
+    for (var i=0; i < removed.length; i++) {
+      if (removed[i]) {
+        console.log("returning", removed[i].value)
+        this.game.tray.addToFirstEmptyCell(removed[i]);
+      }
     }
   }
   for (var i=0; i < this.size.x; i++) {
     if (direction == "up") {
-      this.tiles[i].shift();
+      var removed = this.tiles[i].shift();
       this.tiles[i].push(null);
     } else if (direction == "down") {
-      this.tiles[i].pop();
+      var removed = this.tiles[i].pop();
       this.tiles[i].unshift(null);
+    }
+    if (direction == "up" || direction == "down") {
+      if (removed) {
+        this.game.tray.addToFirstEmptyCell(removed);
+      }
     }
     for (var j=0; j < this.size.y; j++) {
       var tile = this.tiles[i][j];
@@ -147,11 +158,13 @@ Grid.prototype.addToFirstEmptyCell = function(tile) {
     for (var j = 0; j < this.size.y; j++) {
       if (!this.tiles[i][j]) {
         this.insertTile(tile, vec(i, j));
-        return vec(i, j);
-        // TODO: expand on isFull case
+        return
       }
     }
   }
+  // If grid is full, expand it.
+  this.expand("right");
+  this.insertTile(tile, vec(this.size.x - 1, 0));
 }
 
 // Expand grid in the given direction.

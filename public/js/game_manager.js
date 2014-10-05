@@ -11,6 +11,8 @@ function GameManager(size, startTiles) {
 // Setup game.
 GameManager.prototype.setup = function() {
   this.tray = new Grid(this, vec(this.startTiles,1), false);
+  this.borderDiv = createDiv("border", this.div);
+  resizeDiv(this.borderDiv, vec(1, this.cellSize/2));
   this.grid = new Grid(this, vec(this.size, this.size), true);
   this.addButtonHandlers(this);
   this.requestTiles();
