@@ -70,6 +70,15 @@ func (g *Game) getNextTile() string {
 	return g.tiles[g.tilesServed]
 }
 
+type Vec struct {
+	x int
+	y int
+}
+
+func (a Vec) add(b Vec) Vec {
+	return Vec{a.x + b.x, a.y + b.y}
+}
+
 func newTiles() []string {
 	var tiles []string
 	for k, v := range freqMap {
@@ -84,10 +93,55 @@ func newTiles() []string {
 	return tiles
 }
 
-func verifyBoard(board [][]string) bool {
+// Find the tiles connected to the given tile
+func findConnectedTiles(board [][]string, c map[Vec]*[]Vec,
+	tile Vec, compList *[]Vec) {
+	_, ok := c[tile]
+	if !ok && tile.x < len(board) && tile.y < len(board[0]) &&
+		tile.x >= 0 && tile.y >= 0 && board[tile.x][tile.y] != "" {
+		c[tile] = compList
+		*compList = append(*compList, tile)
+		findConnectedTiles(board, c, tile.add(Vec{1, 0}), compList)
+		findConnectedTiles(board, c, tile.add(Vec{0, 1}), compList)
+		findConnectedTiles(board, c, tile.add(Vec{-1, 0}), compList)
+		findConnectedTiles(board, c, tile.add(Vec{0, -1}), compList)
+	}
+}
+
+// Find the connected components
+func findComponents(board [][]string) [][]Vec {
+	result := [][]Vec{}
 	maxX := len(board)
 	maxY := len(board[0])
-	var words []string
+	var i, j int
+	c := make(map[Vec]*[]Vec)
+	for i = 0; i < maxX; i++ {
+		for j = 0; j < maxY; j++ {
+			tile := Vec{i, j}
+			if _, ok := c[tile]; !ok && board[i][j] != "" {
+				var thisCompList []Vec
+				findConnectedTiles(board, c, tile, &thisCompList)
+				result = append(result, thisCompList)
+			}
+		}
+	}
+	log.Println("Found", len(result), "components")
+	log.Println(result)
+	return result
+}
+
+func verifyComponent(board [][]string, v []Vec) bool {
+	// Component must be 2 or more tiles.
+	if len(v) <= 1 {
+		return false
+	}
+	return true
+}
+
+func verifyBoard(board [][]string) bool {
+	findComponents(board)
+	maxX := len(board)
+	maxY := len(board[0])
 	var i, j, k int
 	for i = 0; i < maxX; i++ {
 		for j = 0; j < maxY; j++ {
@@ -95,33 +149,36 @@ func verifyBoard(board [][]string) bool {
 				if i == 0 || board[i-1][j] == "" {
 					if !(i == maxX || board[i+1][j] == "") {
 						var word string = board[i][j] + board[i+1][j]
-						for k = i + 2; k < maxX-(i+2); k++ {
+						for k = i + 2; k < maxX; k++ {
 							if board[k][j] != "" {
 								word += board[k][j]
 							} else {
 								break
 							}
 						}
-						words = append(words, word)
+						if !verifyWord(word) {
+							return false
+						}
 					}
 				}
 				if j == 0 || board[i][j-1] == "" {
 					if !(j == maxY || board[i][j+1] == "") {
 						var word string = board[i][j] + board[i][j+1]
-						for k = j + 2; k < maxY-(j+2); k++ {
+						for k = j + 2; k < maxY; k++ {
 							if board[i][k] != "" {
 								word += board[i][k]
 							} else {
 								break
 							}
 						}
-						words = append(words, word)
+						if !verifyWord(word) {
+							return false
+						}
 					}
 				}
 			}
 		}
 	}
-	log.Println("Found words:", words)
 	return true
 }
 
