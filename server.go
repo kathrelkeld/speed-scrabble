@@ -1,12 +1,44 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"sync"
 )
+
+var globalDict map[string]bool = initDictionary("sowpods.txt")
+
+func initDictionary(filename string) map[string]bool {
+	log.Println("Initializing dictionary from", filename)
+	d := make(map[string]bool)
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Println("err:", err)
+		return d
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		word := scanner.Text()
+		d[word] = true
+	}
+	if err := scanner.Err(); err != nil {
+		log.Println("err:", err)
+		return d
+	}
+	log.Println("Finished initializing dictionary")
+	return d
+}
+
+func verifyWord(w string) bool {
+	d := globalDict
+	_, found := d[w]
+	return found
+}
 
 var globalGame *Game = makeNewGame(1)
 
