@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-var globalGame Game = makeNewGame(1)
+var globalGame *Game = makeNewGame(1)
 
 type Game struct {
 	id          int
@@ -17,8 +17,8 @@ type Game struct {
 	m           sync.Mutex
 }
 
-func makeNewGame(id int) Game {
-	return Game{id: id, tiles: newTiles(), tilesServed: 0, m: sync.Mutex{}}
+func makeNewGame(id int) *Game {
+	return &Game{id: id, tiles: newTiles(), tilesServed: 0, m: sync.Mutex{}}
 }
 
 func (g *Game) getInitialTiles() []string {

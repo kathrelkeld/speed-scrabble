@@ -139,7 +139,6 @@ Grid.prototype.addToNearestEmptyCell = function(tile, position) {
     tile.grid.insertTile(tile, tile.position);
   }
   return true;
-  // TODO: expand on isFull case
 }
 
 // Find the first available empty cell and add the tile to it.
@@ -149,9 +148,35 @@ Grid.prototype.addToFirstEmptyCell = function(tile) {
       if (!this.tiles[i][j]) {
         this.insertTile(tile, vec(i, j));
         return vec(i, j);
+        // TODO: expand on isFull case
       }
     }
   }
 }
 
-
+// Expand grid in the given direction.
+Grid.prototype.expand = function(direction) {
+  if (direction == "right" || direction == "left") {
+    var emptyDivRow = [];
+    var emptyTileRow = [];
+    for (var i=0; i < this.size.y; i++) {
+      emptyDivRow.push(this.createCellDiv(vec(this.size.x, i)));
+      emptyTileRow.push(null);
+    }
+    this.size.x += 1;
+    this.cellDivs.push(emptyDivRow);
+    this.tiles.push(emptyTileRow);
+    if (direction == "left") {
+      this.shiftTiles("right")
+    }
+  } else {
+    for (var i=0; i < this.size.x; i++) {
+      this.cellDivs.push(this.createCellDiv(vec(i, this.size.y)));
+      this.tiles.push(null);
+    }
+    this.size.y += 1;
+    if (direction == "up") {
+      this.shiftTiles("down")
+    }
+  }
+}
