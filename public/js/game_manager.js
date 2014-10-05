@@ -58,6 +58,24 @@ GameManager.prototype.reload = function() {
   this.requestTiles()
 }
 
+// Send gameboard for verification.
+GameManager.prototype.verifyTiles = function() {
+  var tileValues = [];
+  for (var i = 0; i < this.grid.size.x; i++) {
+      tileValues.push([]);
+    for (var j = 0; j < this.grid.size.y; j++) {
+      if (this.grid.tiles[i][j]) {
+        tileValues[i].push(this.grid.tiles[i][j].value);
+      } else {
+        tileValues[i].push(null);
+      }
+    }
+  }
+  sendAndGetJSON(tileValues, "/verify", function(result) {
+    console.log(result);
+  });
+}
+
 // Add onclick handlers to the various game buttons
 GameManager.prototype.addButtonHandlers = function() {
   document.getElementById("reset").onclick = function() {
@@ -75,6 +93,9 @@ GameManager.prototype.addButtonHandlers = function() {
         gamemanager.grid.shiftTiles(entry);
     };
   });
+  document.getElementById("verify").onclick = function() {
+    gamemanager.verifyTiles();
+  };
 }
 
 function newGameManager() {

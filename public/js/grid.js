@@ -88,7 +88,6 @@ Grid.prototype.shiftTiles = function(direction) {
     }
     for (var i=0; i < removed.length; i++) {
       if (removed[i]) {
-        console.log("returning", removed[i].value)
         this.game.tray.addToFirstEmptyCell(removed[i]);
       }
     }

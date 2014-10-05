@@ -67,3 +67,16 @@ function getJSON(page, handler) {
   xmlhttp.open("GET", page, true);
   xmlhttp.send();
 }
+
+// Send json results to given page and apply given handler.
+function sendAndGetJSON(data, page, handler) {
+  var xmlhttp = new XMLHttpRequest();
+  xmlhttp.onreadystatechange = function() {
+    if (xmlhttp.readyState == 4 && xmlhttp.status == 200){
+      response = JSON.parse(xmlhttp.responseText);
+      handler(response);
+    }
+  }
+  xmlhttp.open("POST", page, true);
+  xmlhttp.send(JSON.stringify(data));
+}

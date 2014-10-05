@@ -54,6 +54,13 @@ func newTiles() []string {
 	return tiles
 }
 
+func verifyBoard(board [][]string) bool {
+	if board[0][0] != "" {
+		return true
+	}
+	return false
+}
+
 func sendJSON(v interface{}, w http.ResponseWriter) {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -82,6 +89,18 @@ func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 	sendJSON(tiles, w)
 }
 
+func handleVerifyTiles(w http.ResponseWriter, req *http.Request) {
+	var board []([]string)
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&board)
+	if err != nil {
+		log.Println("error:", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+	sendJSON(verifyBoard(board), w)
+}
+
 func main() {
 	const addr = "localhost:8080"
 	fileserver := http.FileServer(http.Dir("public"))
@@ -91,6 +110,7 @@ func main() {
 	http.Handle("/public/", http.StripPrefix("/public/", fileserver))
 	http.HandleFunc("/tiles", handleNewTiles)
 	http.HandleFunc("/add_tile", handleAddTile)
+	http.HandleFunc("/verify", handleVerifyTiles)
 
 	log.Println("Now listening on", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
