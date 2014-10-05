@@ -55,10 +55,44 @@ func newTiles() []string {
 }
 
 func verifyBoard(board [][]string) bool {
-	if board[0][0] != "" {
-		return true
+	maxX := len(board)
+	maxY := len(board[0])
+	var words []string
+	var i, j, k int
+	for i = 0; i < maxX; i++ {
+		for j = 0; j < maxY; j++ {
+			if board[i][j] != "" {
+				if i == 0 || board[i-1][j] == "" {
+					if !(i == maxX || board[i+1][j] == "") {
+						var word string = board[i][j] + board[i+1][j]
+						for k = i + 2; k < maxX-(i+2); k++ {
+							if board[k][j] != "" {
+								word += board[k][j]
+							} else {
+								break
+							}
+						}
+						words = append(words, word)
+					}
+				}
+				if j == 0 || board[i][j-1] == "" {
+					if !(j == maxY || board[i][j+1] == "") {
+						var word string = board[i][j] + board[i][j+1]
+						for k = j + 2; k < maxY-(j+2); k++ {
+							if board[i][k] != "" {
+								word += board[i][k]
+							} else {
+								break
+							}
+						}
+						words = append(words, word)
+					}
+				}
+			}
+		}
 	}
-	return false
+	log.Println("Found words:", words)
+	return true
 }
 
 func sendJSON(v interface{}, w http.ResponseWriter) {
