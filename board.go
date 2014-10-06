@@ -146,15 +146,15 @@ func (b Board) scoreComponent(c VecSet) int {
 }
 
 // Compare a game's tiles to the tiles pointed to by a given set.
-func (b Board) compareTiles(g *Game, s VecSet) bool {
+func (b Board) compareTiles(c *Client, s VecSet) bool {
 	// Return false if set and game do not have same count of tiles.
-	tilesServed := g.getTilesServedCount()
+	tilesServed := c.getTilesServedCount()
 	if len(s) != tilesServed {
 		log.Println("Game and board were not same length")
 		return false
 	}
 	// Return false if set and game do not agree on tile values.
-	t := g.getAllTilesServed()
+	t := c.getAllTilesServed()
 	log.Println("Game:", s)
 	log.Println("Board:", t)
 	tileCount := make(map[string]int)
@@ -188,12 +188,12 @@ func (b Board) verifyBoard() bool {
 			}
 			log.Println("Found component with score", newScore)
 		}
-		log.Println("Your score was:", globalGame.getMaxScore()-score)
+		log.Println("Your score was:", globalClient.getMaxScore()-score)
 		return false
 	}
 	// A valid component must contain exactly the tiles served.
 	comp := components[0]
-	if !b.compareTiles(globalGame, comp) {
+	if !b.compareTiles(globalClient, comp) {
 		return false
 	}
 	// A valid component contains only valid words.

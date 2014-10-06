@@ -7,6 +7,7 @@ import (
 )
 
 var globalGame = makeNewGame(1)
+var globalClient = makeNewClient(1)
 
 func sendJSON(v interface{}, w http.ResponseWriter) {
 	b, err := json.Marshal(v)
@@ -20,7 +21,7 @@ func sendJSON(v interface{}, w http.ResponseWriter) {
 }
 
 func handleAddTile(w http.ResponseWriter, req *http.Request) {
-	tile := globalGame.getNextTile()
+	tile := globalClient.getNextTile()
 	if tile == "" {
 		http.Error(w, "No more tiles!", http.StatusBadRequest)
 		return
@@ -31,7 +32,7 @@ func handleAddTile(w http.ResponseWriter, req *http.Request) {
 
 func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 	globalGame = makeNewGame(globalGame.id + 1)
-	tiles := globalGame.getInitialTiles()
+	tiles := globalClient.getInitialTiles()
 	log.Println("Sending Tiles:", tiles)
 	sendJSON(tiles, w)
 }
