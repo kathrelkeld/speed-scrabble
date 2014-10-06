@@ -98,17 +98,16 @@ func (b Board) findComponents() []VecSet {
 	return result
 }
 
-// Given a tile and a direction, follow the word in that direction,
-// adding each tile to the set of tiles checked in that direction.
-func (b Board) followWord(v Vec, comp VecSet, dSet VecSet, d Vec) bool {
-	dSet.add(v)
+// Given a tile and a direction, follow the word in that direction.
+// Returns false if any problems are found
+// (i.e. more than 1 letter yet not a word)
+func (b Board) followWord(v Vec, comp VecSet, d Vec) bool {
 	next := v.vAdd(d)
 	if !comp.contains(next) {
 		return true
 	}
 	word := b.value(v)
 	for comp.contains(next) {
-		dSet.add(next)
 		word += b.value(next)
 		next = next.vAdd(d)
 	}
@@ -117,21 +116,20 @@ func (b Board) followWord(v Vec, comp VecSet, dSet VecSet, d Vec) bool {
 }
 
 // Verify that the given component list has valid words.
-func (b Board) verifyComponent(comp VecSet) bool {
+func (b Board) verifyWordsInComponent(comp VecSet) bool {
 	// Component must be 2 or more tiles.
 	if len(comp) <= 1 {
 		return false
 	}
-	across := make(VecSet)
-	vertical := make(VecSet)
+	// Check all tiles in the vert and horizontal directions.
 	for v := range comp {
 		if !comp.contains(v.vAdd(Vec{-1, 0})) {
-			if !b.followWord(v, comp, across, Vec{1, 0}) {
+			if !b.followWord(v, comp, Vec{1, 0}) {
 				return false
 			}
 		}
 		if !comp.contains(v.vAdd(Vec{0, -1})) {
-			if !b.followWord(v, comp, vertical, Vec{0, 1}) {
+			if !b.followWord(v, comp, Vec{0, 1}) {
 				return false
 			}
 		}
@@ -139,15 +137,52 @@ func (b Board) verifyComponent(comp VecSet) bool {
 	return true
 }
 
-func (b Board) verifyBoard() bool {
-	components := b.findComponents()
-	valid := false
-	for _, comp := range components {
-		valid = b.verifyComponent(comp)
-		log.Println("Component was", valid)
+// Compare a game's tiles to the tiles pointed to by a given set.
+func (b Board) compareTiles(g *Game, s VecSet) bool {
+	// Return false if set and game do not have same count of tiles.
+	tilesServed := g.getTilesServedCount()
+	if len(s) != tilesServed {
+		log.Println("Game and board were not same length")
+		return false
 	}
+	// Return false if set and game do not agree on tile values.
+	t := g.getAllTilesServed()
+	log.Println("Game:", s)
+	log.Println("Board:", t)
+	tileCount := make(map[string]int)
+	for _, elt := range t {
+		tileCount[elt] += 1
+	}
+	for key := range s {
+		tileCount[b.value(key)] -= 1
+	}
+	log.Println("Count:", tileCount)
+	for key, count := range tileCount {
+		if count != 0 {
+			log.Println("Game and board did not agree on", key, "values")
+			return false
+		}
+	}
+	// Return true if all other checks have passed.
+	return true
+}
+
+// Return true if this board is a valid soultion
+func (b Board) verifyBoard() bool {
+	// Find all components on this board.  A valid board has only 1.
+	components := b.findComponents()
 	if len(components) != 1 {
 		return false
 	}
-	return valid
+	// A valid component must contain exactly the tiles served.
+	comp := components[0]
+	if !b.compareTiles(globalGame, comp) {
+		return false
+	}
+	// A valid component contains only valid words.
+	if !b.verifyWordsInComponent(comp) {
+		return false
+	}
+	// Return true if all other checks have passed.
+	return true
 }

@@ -8,7 +8,7 @@ import (
 
 type Game struct {
 	id          int
-	tiles       []string
+	tiles       Tiles
 	tilesServed int
 	m           sync.Mutex
 }
@@ -17,7 +17,7 @@ func makeNewGame(id int) *Game {
 	return &Game{id: id, tiles: newTiles(), tilesServed: 0, m: sync.Mutex{}}
 }
 
-func (g *Game) getInitialTiles() []string {
+func (g *Game) getInitialTiles() Tiles {
 	g.m.Lock()
 	g.tilesServed = 12
 	g.m.Unlock()
@@ -32,11 +32,25 @@ func (g *Game) getNextTile() string {
 	g.m.Lock()
 	defer g.m.Unlock()
 	g.tilesServed += 1
-	return g.tiles[g.tilesServed]
+	return g.tiles[g.tilesServed - 1]
 }
 
-func newTiles() []string {
-	var tiles []string
+func (g *Game) getTilesServedCount() int {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.tilesServed
+}
+
+func (g *Game) getAllTilesServed() Tiles {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.tiles[:g.tilesServed]
+}
+
+type Tiles []string
+
+func newTiles() Tiles {
+	var tiles Tiles
 	for k, v := range freqMap {
 		for j := 0; j < v; j++ {
 			tiles = append(tiles, k)
