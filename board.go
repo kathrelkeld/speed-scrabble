@@ -40,7 +40,7 @@ type Vec struct {
 	y int
 }
 
-func (a Vec) vAdd(b Vec) Vec {
+func (a Vec) add(b Vec) Vec {
 	return Vec{a.x + b.x, a.y + b.y}
 }
 
@@ -51,7 +51,7 @@ func (s VecSet) contains(elt Vec) bool {
 	return ok
 }
 
-func (s VecSet) add(elt Vec) {
+func (s VecSet) insert(elt Vec) {
 	s[elt] = struct{}{}
 }
 
@@ -66,11 +66,11 @@ func (b Board) findConnectedTiles(v Vec, found VecSet) {
 	if !found.contains(v) &&
 		v.x < len(b) && v.y < len(b[0]) &&
 		v.x >= 0 && v.y >= 0 && b.value(v) != "" {
-		found.add(v)
-		b.findConnectedTiles(v.vAdd(Vec{1, 0}), found)
-		b.findConnectedTiles(v.vAdd(Vec{0, 1}), found)
-		b.findConnectedTiles(v.vAdd(Vec{-1, 0}), found)
-		b.findConnectedTiles(v.vAdd(Vec{0, -1}), found)
+		found.insert(v)
+		b.findConnectedTiles(v.add(Vec{1, 0}), found)
+		b.findConnectedTiles(v.add(Vec{0, 1}), found)
+		b.findConnectedTiles(v.add(Vec{-1, 0}), found)
+		b.findConnectedTiles(v.add(Vec{0, -1}), found)
 	}
 }
 
@@ -89,7 +89,7 @@ func (b Board) findComponents() []VecSet {
 				b.findConnectedTiles(v, thisCompFound)
 				result = append(result, thisCompFound)
 				for elt := range thisCompFound {
-					c.add(elt)
+					c.insert(elt)
 				}
 			}
 		}
@@ -102,14 +102,14 @@ func (b Board) findComponents() []VecSet {
 // Returns false if any problems are found
 // (i.e. more than 1 letter yet not a word)
 func (b Board) followWord(v Vec, comp VecSet, d Vec) bool {
-	next := v.vAdd(d)
+	next := v.add(d)
 	if !comp.contains(next) {
 		return true
 	}
 	word := b.value(v)
 	for comp.contains(next) {
 		word += b.value(next)
-		next = next.vAdd(d)
+		next = next.add(d)
 	}
 	log.Println("Found word", word)
 	return verifyWord(word)
@@ -123,12 +123,12 @@ func (b Board) verifyWordsInComponent(comp VecSet) bool {
 	}
 	// Check all tiles in the vert and horizontal directions.
 	for v := range comp {
-		if !comp.contains(v.vAdd(Vec{-1, 0})) {
+		if !comp.contains(v.add(Vec{-1, 0})) {
 			if !b.followWord(v, comp, Vec{1, 0}) {
 				return false
 			}
 		}
-		if !comp.contains(v.vAdd(Vec{0, -1})) {
+		if !comp.contains(v.add(Vec{0, -1})) {
 			if !b.followWord(v, comp, Vec{0, 1}) {
 				return false
 			}

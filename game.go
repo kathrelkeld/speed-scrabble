@@ -16,6 +16,7 @@ type Game struct {
 	id    int
 	state int
 	tiles Tiles
+	players ClientSet
 	mu    sync.Mutex
 }
 
@@ -30,6 +31,7 @@ func makeNewGame(id int) *Game {
 	g.id = id
 	g.tiles = newTiles()
 	g.state = READY
+	g.players = make(ClientSet)
 	g.mu = sync.Mutex{}
 	return &g
 }
@@ -54,6 +56,9 @@ func (c *Client) addToGame(g *Game) {
 	c.mu.Lock()
 	c.game = g
 	c.mu.Unlock()
+	g.mu.Lock()
+	g.players.insert(c)
+	g.mu.Unlock()
 }
 
 func (c *Client) getInitialTiles() Tiles {
@@ -98,6 +103,17 @@ func (c *Client) getMaxScore() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.maxScore
+}
+
+type ClientSet map[*Client]struct{}
+
+func (s ClientSet) contains(elt *Client) bool {
+	_, ok := s[elt]
+	return ok
+}
+
+func (s ClientSet) insert(elt *Client) {
+	s[elt] = struct{}{}
 }
 
 type Tiles []string
