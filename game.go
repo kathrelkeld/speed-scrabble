@@ -50,6 +50,12 @@ func makeNewClient(id int) *Client {
 	return &c
 }
 
+func (c *Client) addToGame(g *Game) {
+	c.mu.Lock()
+	c.game = g
+	c.mu.Unlock()
+}
+
 func (c *Client) getInitialTiles() Tiles {
 	tiles := c.game.tiles[:12]
 	score := 0

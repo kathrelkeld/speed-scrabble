@@ -32,6 +32,7 @@ func handleAddTile(w http.ResponseWriter, req *http.Request) {
 
 func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 	globalGame = makeNewGame(globalGame.id + 1)
+	globalClient.addToGame(globalGame)
 	tiles := globalClient.getInitialTiles()
 	log.Println("Sending Tiles:", tiles)
 	sendJSON(tiles, w)
