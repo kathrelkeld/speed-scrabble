@@ -11,11 +11,15 @@ type Game struct {
 	tiles       Tiles
 	tilesServed int
 	maxScore    int
-	m           sync.Mutex
+	mu          sync.Mutex
 }
 
 func makeNewGame(id int) *Game {
-	return &Game{id: id, tiles: newTiles(), tilesServed: 0, maxScore: 0, m: sync.Mutex{}}
+	g := Game{}
+	g.id = id
+	g.tiles = newTiles()
+	g.mu = sync.Mutex{}
+	return &g
 }
 
 func (g *Game) getInitialTiles() Tiles {
@@ -24,10 +28,10 @@ func (g *Game) getInitialTiles() Tiles {
 	for _, elt := range tiles {
 		score += pointValues[elt]
 	}
-	g.m.Lock()
+	g.mu.Lock()
 	g.tilesServed = 12
 	g.maxScore = score
-	g.m.Unlock()
+	g.mu.Unlock()
 	return g.tiles[:12]
 }
 
@@ -36,29 +40,29 @@ func (g *Game) getNextTile() string {
 		log.Println("No tiles remaining to send!")
 		return ""
 	}
-	g.m.Lock()
+	g.mu.Lock()
 	g.tilesServed += 1
-	tile := g.tiles[g.tilesServed - 1]
+	tile := g.tiles[g.tilesServed-1]
 	g.maxScore += pointValues[tile]
-	g.m.Unlock()
+	g.mu.Unlock()
 	return tile
 }
 
 func (g *Game) getTilesServedCount() int {
-	g.m.Lock()
-	defer g.m.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.tilesServed
 }
 
 func (g *Game) getAllTilesServed() Tiles {
-	g.m.Lock()
-	defer g.m.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.tiles[:g.tilesServed]
 }
 
 func (g *Game) getMaxScore() int {
-	g.m.Lock()
-	defer g.m.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.maxScore
 }
 
@@ -76,6 +80,20 @@ func newTiles() Tiles {
 		tiles[i], tiles[j] = tiles[j], tiles[i]
 	}
 	return tiles
+}
+
+type Client struct {
+	id   int
+	game *Game
+	mu   sync.Mutex
+}
+
+func makeNewClient(id int) *Client {
+	c := Client{}
+	c.id = id
+	c.game = globalGame
+	c.mu = sync.Mutex{}
+	return &c
 }
 
 var freqMap = map[string]int{

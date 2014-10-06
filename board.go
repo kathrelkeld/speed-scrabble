@@ -188,7 +188,7 @@ func (b Board) verifyBoard() bool {
 			}
 			log.Println("Found component with score", newScore)
 		}
-		log.Println("Your score was:", globalGame.getMaxScore() - score)
+		log.Println("Your score was:", globalGame.getMaxScore()-score)
 		return false
 	}
 	// A valid component must contain exactly the tiles served.
