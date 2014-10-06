@@ -10,16 +10,23 @@ type Game struct {
 	id          int
 	tiles       Tiles
 	tilesServed int
+	maxScore    int
 	m           sync.Mutex
 }
 
 func makeNewGame(id int) *Game {
-	return &Game{id: id, tiles: newTiles(), tilesServed: 0, m: sync.Mutex{}}
+	return &Game{id: id, tiles: newTiles(), tilesServed: 0, maxScore: 0, m: sync.Mutex{}}
 }
 
 func (g *Game) getInitialTiles() Tiles {
+	tiles := g.tiles[:12]
+	score := 0
+	for _, elt := range tiles {
+		score += pointValues[elt]
+	}
 	g.m.Lock()
 	g.tilesServed = 12
+	g.maxScore = score
 	g.m.Unlock()
 	return g.tiles[:12]
 }
@@ -30,9 +37,11 @@ func (g *Game) getNextTile() string {
 		return ""
 	}
 	g.m.Lock()
-	defer g.m.Unlock()
 	g.tilesServed += 1
-	return g.tiles[g.tilesServed - 1]
+	tile := g.tiles[g.tilesServed - 1]
+	g.maxScore += pointValues[tile]
+	g.m.Unlock()
+	return tile
 }
 
 func (g *Game) getTilesServedCount() int {
@@ -45,6 +54,12 @@ func (g *Game) getAllTilesServed() Tiles {
 	g.m.Lock()
 	defer g.m.Unlock()
 	return g.tiles[:g.tilesServed]
+}
+
+func (g *Game) getMaxScore() int {
+	g.m.Lock()
+	defer g.m.Unlock()
+	return g.maxScore
 }
 
 type Tiles []string

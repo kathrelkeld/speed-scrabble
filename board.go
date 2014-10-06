@@ -137,6 +137,14 @@ func (b Board) verifyWordsInComponent(comp VecSet) bool {
 	return true
 }
 
+func (b Board) scoreComponent(c VecSet) int {
+	score := 0
+	for v, _ := range c {
+		score += pointValues[b.value(v)]
+	}
+	return score
+}
+
 // Compare a game's tiles to the tiles pointed to by a given set.
 func (b Board) compareTiles(g *Game, s VecSet) bool {
 	// Return false if set and game do not have same count of tiles.
@@ -172,6 +180,15 @@ func (b Board) verifyBoard() bool {
 	// Find all components on this board.  A valid board has only 1.
 	components := b.findComponents()
 	if len(components) != 1 {
+		score := 0
+		for _, comp := range components {
+			newScore := b.scoreComponent(comp)
+			if newScore > score {
+				score = newScore
+			}
+			log.Println("Found component with score", newScore)
+		}
+		log.Println("Your score was:", globalGame.getMaxScore() - score)
 		return false
 	}
 	// A valid component must contain exactly the tiles served.
