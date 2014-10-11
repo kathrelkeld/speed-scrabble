@@ -32,6 +32,16 @@ Grid.prototype.setup = function() {
   }
 }
 
+// Get the value of the given position in the tile matrix.
+Grid.prototype.getPosition = function(position) {
+  return this.tiles[position.x][position.y];
+}
+
+// Set the value of the given position in the tile matrix.
+Grid.prototype.setPosition = function(position, value) {
+  this.tiles[position.x][position.y] = value;
+}
+
 Grid.prototype.removeTile = function(tile) {
   this.tiles[tile.position.x][tile.position.y] = null;
 }
@@ -63,7 +73,7 @@ Grid.prototype.sendAllTiles = function(grid) {
 }
 
 // Insert a tile at a given position.
-Grid.prototype.insertTile = function(tile, position) {
+Grid.prototype.addTile = function(tile, position) {
   this.tiles[position.x][position.y] = tile;
   tile.position = position;
   tile.grid = this;
@@ -118,29 +128,19 @@ Grid.prototype.shiftTiles = function(direction) {
   }
 }
 
-// Add the given tile to the nearest tile to position, if possible.
-// If the tile is occupied, return tile to former spot.
-// Return true or false for success or failure.
-Grid.prototype.addToNearestEmptyCell = function(tile, position) {
+// Find the nearest empty cell and return its index position.
+Grid.prototype.findNearestEmptyCell = function(position) {
   if (!inBoundsOfDiv(position, this.div)) {
     return null;
   }
   // Calculate nearest neighbor.
-  var relative = vSub(position, getDivPos(this.div));
-  var coords = vScale(relative, 1 / this.game.cellSize);
-  var intCoords = vec(Math.floor(coords.x), Math.floor(coords.y));
+  var intCoords = nearestCoordsInDiv(position, this.game.cellSize, this.div);
 
-  // Make sure nearest is empty and not this tile.
-  if (this.tiles[intCoords.x][intCoords.y] == null) {
-    this.insertTile(tile, intCoords);
-  } else {
-    // Return tile to former location if this location isn't the tray.
-    if (this == this.game.tray) {
-      return false;
-    }
-    tile.grid.insertTile(tile, tile.position);
+  //TODO: Find nearest empty tile instead of just returning null if not empty.
+  if (this.getPosition(intCoords) == null) {
+    return intCoords;
   }
-  return true;
+  return null;
 }
 
 // Find the first available empty cell and add the tile to it.
@@ -197,20 +197,36 @@ function Tray(game) {
   this.tiles = [];
 }
 
-Tray.prototype.addTile = function(tile) {
-  this.size = vAdd(this.size, vec(1, 0));
-  this.tiles.push(tile);
+// Add a tile, at the index (integer) if given.
+Tray.prototype.addTile = function(tile, index) {
+  if (index == null) {
+    index = this.tiles.length;
+  }
+  for (var i = index; i < this.tiles.length; i++) {
+    var curr = this.tiles[i];
+    curr.position = vec(i + 1, 0);
+    curr.redraw();
+  }
+  this.tiles.splice(index, 0, tile);
   tile.grid = this;
-  tile.position = vec(this.tiles.length - 1, 0);
+  tile.position = vec(index, 0);
   tile.redraw();
 };
 
 Tray.prototype.removeTile = function(tile) {
   var index = this.tiles.indexOf(tile);
-  this.tiles.splice(index, 1);
-  for (var i = index; i < this.tiles.length; i++) {
-    var tile = this.tiles[i];
-    tile.position = vAdd(tile.position, vec(-1, 0));
-    tile.redraw();
+  for (var i = index + 1; i < this.tiles.length; i++) {
+    var curr = this.tiles[i];
+    curr.position = vAdd(curr.position, vec(-1, 0));
+    curr.redraw();
   }
-}
+  this.tiles.splice(index, 1);
+};
+
+Tray.prototype.findNearest = function(position) {
+  var nearest = nearestCoordsInDiv(position, this.game.cellSize, this.div);
+  if (nearest.y != 0 || nearest.x >= this.tiles.length || nearest.x < 0) {
+    return null;
+  }
+  return nearest.x;
+};

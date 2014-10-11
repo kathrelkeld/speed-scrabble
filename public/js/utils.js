@@ -71,6 +71,14 @@ function inBoundsOfDiv(position, div) {
     position.y >= topLeft.y && position.y <= bottomRight.y;
 }
 
+// Calculate the nearest integer coordinates, given the cell size and parent div.
+// Does not check whether position is actually within the given div's bounds.
+function nearestCoordsInDiv(position, cellSize, div) {
+  var relative = vSub(position, getDivPos(div));
+  var coords = vScale(relative, 1 / cellSize);
+  return vec(Math.floor(coords.x), Math.floor(coords.y));
+}
+
 // Remove a div from its parent.
 function removeDiv(div) {
   div.parentNode.removeChild(div);

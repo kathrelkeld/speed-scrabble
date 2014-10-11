@@ -26,13 +26,22 @@ GameManager.prototype.addNewLetters = function(letters) {
   }
 }
 
-// Figure out the place to put a tile in motion.
+// Figure out where a tile will land, given its position.
+// Returns the grid and the position in the grid.
+GameManager.prototype.getNextPosition = function(position) {
+  // Try to add to the grid or the tray at this position.
+  var nearestBoardCell = this.grid.findNearestEmptyCell(position);
+  if (nearestBoardCell) {
+    return [this.grid, nearestBoardCell];
+  }
+  return [this.tray, this.tray.findNearest(position)];
+}
+
+// Place a tile, given its position.
 GameManager.prototype.moveTileTo = function(tile, position) {
   // Try to add to the grid or the tray at this position.
-  if (this.grid.addToNearestEmptyCell(tile, position)) {
-        return;
-      }
-  this.tray.addTile(tile);
+  var results = this.getNextPosition(position);
+  results[0].addTile(tile, results[1]);
 }
 
 // Send request for new Letters and add them.
