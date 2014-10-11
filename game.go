@@ -13,11 +13,11 @@ const (
 )
 
 type Game struct {
-	id    int
-	state int
-	tiles Tiles
+	id      int
+	state   int
+	tiles   Tiles
 	players ClientSet
-	mu    sync.Mutex
+	mu      sync.Mutex
 }
 
 func (g *Game) isRunning() bool {

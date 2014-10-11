@@ -15,9 +15,15 @@ function Tile(value, game, grid) {
   this.upListener = this.mouseUp.bind(this);
 }
 
+// Redraw a tile in its known position in its known grid.
+Tile.prototype.redraw = function() {
+  var scaledPosition = vScale(this.position, this.game.cellSize);
+  moveTileDivRelative(this.div, scaledPosition, this.grid.div);
+}
+
 // Remove a given tile from its parent grid.
 Tile.prototype.removeTile = function() {
-  this.grid.tiles[this.position.x][this.position.y] = null;
+  this.grid.removeTile(this);
 }
 
 // onMouseDown event handler.  Always active for this tile.

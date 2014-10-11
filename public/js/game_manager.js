@@ -10,43 +10,42 @@ function GameManager(size, startTiles) {
 
 // Setup game.
 GameManager.prototype.setup = function() {
-  this.tray = new Grid(this, vec(this.startTiles,1), false);
+  this.tray = new Tray(this);
   this.borderDiv = createDiv("border", this.div);
   resizeDiv(this.borderDiv, vec(1, this.cellSize/2));
-  this.grid = new Grid(this, vec(this.size, this.size), true);
+  this.grid = new Grid(this, vec(this.size, this.size));
   this.addButtonHandlers(this);
   this.requestTiles();
 }
 
 // Add a list of tiles.
-GameManager.prototype.addTiles = function(tiles) {
-  for (var i=0; i<tiles.length; i++) {
-    var tile = new Tile(tiles[i], this, this.tray);
-    this.tray.addToFirstEmptyCell(tile);
+GameManager.prototype.addNewLetters = function(letters) {
+  for (var i=0; i<letters.length; i++) {
+    var tile = new Tile(letters[i], this, this.tray);
+    this.tray.addTile(tile);
   }
 }
 
 // Figure out the place to put a tile in motion.
 GameManager.prototype.moveTileTo = function(tile, position) {
   // Try to add to the grid or the tray at this position.
-  if (this.grid.addToNearestEmptyCell(tile, position) ||
-      this.tray.addToNearestEmptyCell(tile, position)) {
+  if (this.grid.addToNearestEmptyCell(tile, position)) {
         return;
       }
-  this.tray.addToFirstEmptyCell(tile);
+  this.tray.addTile(tile);
 }
 
-// Send request for new Tiles and add them.
+// Send request for new Letters and add them.
 GameManager.prototype.requestTiles = function() {
-  getJSON("/tiles", function(tiles) {
-    gamemanager.addTiles(tiles);
+  getJSON("/tiles", function(letters) {
+    gamemanager.addNewLetters(letters);
   });
 }
 
-// Send request for new tile and add it.
+// Send request for new letter and add it.
 GameManager.prototype.requestNewTile = function() {
-  getJSON("/add_tile", function(tile) {
-    gamemanager.addTiles([tile]);
+  getJSON("/add_tile", function(letter) {
+    gamemanager.addNewLetters([letter]);
   });
 }
 

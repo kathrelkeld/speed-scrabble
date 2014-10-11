@@ -39,15 +39,36 @@ function moveDiv(div, position) {
   div.style.top = position.y;
 }
 
+// Move the given div to the given position relative to the given parent.
+function moveTileDivRelative(div, position, pdiv) {
+  var pCorner = getDivPos(pdiv);
+  var newPosition = vAdd(pCorner, position);
+  moveDiv(div, newPosition);
+}
+
 // Resize the given div to the given dimensions.
 function resizeDiv(div, dimensions) {
   div.style.width = dimensions.x;
   div.style.height = dimensions.y;
 }
 
-// Get the position of the given div.
+// Get the top-left position of the given div.
 function getDivPos(div) {
   return vec(div.offsetLeft, div.offsetTop);
+}
+
+// Get the bottom-right position of the given div.
+function getDivPosBottomRight(div) {
+  return vec(div.offsetLeft + div.offsetWidth,
+             div.offsetTop + div.offsetHeight);
+}
+
+// Whether a given mouse position is in bounds of a given div.
+function inBoundsOfDiv(position, div) {
+  var topLeft = getDivPos(div);
+  var bottomRight = getDivPosBottomRight(div);
+  return position.x >= topLeft.x && position.x <= bottomRight.x &&
+    position.y >= topLeft.y && position.y <= bottomRight.y;
 }
 
 // Remove a div from its parent.

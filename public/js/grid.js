@@ -1,8 +1,7 @@
-function Grid(game, size, expands) {
+function Grid(game, size) {
   this.game = game;
   this.size = size; // (x, y) of grid dimensions.
   this.div = createDiv('grid', game.div);
-  this.expands = expands;
 
   // Customize grid div.
   resizeDiv(this.div, vScale(size, game.cellSize));
@@ -14,9 +13,7 @@ function Grid(game, size, expands) {
 Grid.prototype.createCellDiv = function(position) {
   var div = createDiv('cell', this.div);
   var cellSize = this.game.cellSize;
-  var gridCorner = getDivPos(this.div);
-  var newPosition = vAdd(gridCorner, vScale(position, cellSize));
-  moveDiv(div, newPosition);
+  moveTileDivRelative(div, vScale(position, cellSize), this.div);
   resizeDiv(div, vec(cellSize, cellSize));
   return div;
 }
@@ -33,6 +30,10 @@ Grid.prototype.setup = function() {
       this.tiles[x].push(null);
     }
   }
+}
+
+Grid.prototype.removeTile = function(tile) {
+  this.tiles[tile.position.x][tile.position.y] = null;
 }
 
 // Destroy all current tiles.
@@ -117,20 +118,11 @@ Grid.prototype.shiftTiles = function(direction) {
   }
 }
 
-// Returns true/false if the position is/isn't within the grid.
-Grid.prototype.isWithinBounds = function(position) {
-  var curr = getDivPos(this.div);
-  return position.x >= curr.x &&
-    position.x <= curr.x + this.size.x * this.game.cellSize &&
-    position.y >= curr.y &&
-    position.y <= curr.y + this.size.y * this.game.cellSize;
-}
-
 // Add the given tile to the nearest tile to position, if possible.
 // If the tile is occupied, return tile to former spot.
 // Return true or false for success or failure.
 Grid.prototype.addToNearestEmptyCell = function(tile, position) {
-  if (!this.isWithinBounds(position)) {
+  if (!inBoundsOfDiv(position, this.div)) {
     return null;
   }
   // Calculate nearest neighbor.
@@ -190,5 +182,35 @@ Grid.prototype.expand = function(direction) {
     if (direction == "up") {
       this.shiftTiles("down")
     }
+  }
+}
+
+
+function Tray(game) {
+  this.game = game;
+  this.size = vec(1, 1); // (x, y) of dimensions.
+  this.div = createDiv('grid', game.div);
+
+  // Customize this div.
+  resizeDiv(this.div, vScale(this.size, game.cellSize));
+
+  this.tiles = [];
+}
+
+Tray.prototype.addTile = function(tile) {
+  this.size = vAdd(this.size, vec(1, 0));
+  this.tiles.push(tile);
+  tile.grid = this;
+  tile.position = vec(this.tiles.length - 1, 0);
+  tile.redraw();
+};
+
+Tray.prototype.removeTile = function(tile) {
+  var index = this.tiles.indexOf(tile);
+  this.tiles.splice(index, 1);
+  for (var i = index; i < this.tiles.length; i++) {
+    var tile = this.tiles[i];
+    tile.position = vAdd(tile.position, vec(-1, 0));
+    tile.redraw();
   }
 }
