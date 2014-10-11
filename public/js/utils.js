@@ -23,6 +23,11 @@ function vEquals(a, b) {
   return ((a.x == b.x) && (a.y == b.y));
 }
 
+// Whether a given vector is positive and less than size in all directions.
+function inBoundsOfSize(v, size) {
+  return (v.x >= 0 && v.y >= 0 && v.x < size.x && v.y < size.y);
+}
+
 // Create a div with the given className and append to given parentDiv.
 function createDiv(className, parentDiv) {
   var div = document.createElement('div');

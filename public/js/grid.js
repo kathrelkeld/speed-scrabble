@@ -133,29 +133,18 @@ Grid.prototype.findNearestEmptyCell = function(position) {
   if (!inBoundsOfDiv(position, this.div)) {
     return null;
   }
-  // Calculate nearest neighbor.
+  // Calculate the grid cell under this position.
   var intCoords = nearestCoordsInDiv(position, this.game.cellSize, this.div);
 
-  //TODO: Find nearest empty tile instead of just returning null if not empty.
-  if (this.getPosition(intCoords) == null) {
-    return intCoords;
-  }
-  return null;
-}
-
-// Find the first available empty cell and add the tile to it.
-Grid.prototype.addToFirstEmptyCell = function(tile) {
-  for (var i = 0; i < this.size.x; i++) {
-    for (var j = 0; j < this.size.y; j++) {
-      if (!this.tiles[i][j]) {
-        this.insertTile(tile, vec(i, j));
-        return
-      }
+  // Check this and immediate surrounding tiles for an empty.
+  dirs = [vec(0, 0), vec(1, 0), vec(-1, 0), vec(0, 1), vec(0, -1)];
+  for (var d = 0; d < dirs.length; d++) {
+    var curr = vAdd(intCoords, dirs[d]);
+    if (inBoundsOfSize(curr, this.size) && this.getPosition(curr) == null) {
+      return curr;
     }
   }
-  // If grid is full, expand it.
-  this.expand("right");
-  this.insertTile(tile, vec(this.size.x - 1, 0));
+  return null;
 }
 
 // Expand grid in the given direction.
