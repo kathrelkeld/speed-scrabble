@@ -22,7 +22,7 @@ GameManager.prototype.setup = function() {
 GameManager.prototype.addNewLetters = function(letters) {
   for (var i=0; i<letters.length; i++) {
     var tile = new Tile(letters[i], this, this.tray);
-    this.tray.addTile(tile);
+    this.moveTileToTray(tile);
   }
 }
 
@@ -42,6 +42,12 @@ GameManager.prototype.moveTileTo = function(tile, position) {
   // Try to add to the grid or the tray at this position.
   var results = this.getNextPosition(position);
   results[0].addTile(tile, results[1]);
+}
+
+// Place a tile back in the tray.
+GameManager.prototype.moveTileToTray = function(tile) {
+  // Try to add to the grid or the tray at this position.
+  this.tray.addTile(tile, null);
 }
 
 // Send request for new Letters and add them.
@@ -87,7 +93,7 @@ GameManager.prototype.verifyTiles = function() {
 // Add onclick handlers to the various game buttons
 GameManager.prototype.addButtonHandlers = function() {
   document.getElementById("reset").onclick = function() {
-    gamemanager.grid.sendAllTiles(gamemanager.tray)
+    gamemanager.grid.sendAllTilesToTray()
   };
   document.getElementById("add_tile").onclick = function() {
     gamemanager.requestNewTile()

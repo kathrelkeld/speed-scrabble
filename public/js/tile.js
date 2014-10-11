@@ -22,13 +22,13 @@ Tile.prototype.redraw = function() {
 }
 
 // Remove a given tile from its parent grid.
-Tile.prototype.removeTile = function() {
+Tile.prototype.remove = function() {
   this.grid.removeTile(this);
 }
 
 // onMouseDown event handler.  Always active for this tile.
 Tile.prototype.mouseDown = function(e) {
-  this.removeTile();
+  this.remove();
   this.div.classList.add('moving');
   window.addEventListener('mousemove', this.moveListener);
   window.addEventListener('mouseup', this.upListener);

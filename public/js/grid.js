@@ -52,21 +52,21 @@ Grid.prototype.removeAllTiles = function() {
     for (var y = 0; y < this.size.y; y++) {
       var tile = this.tiles[x][y];
       if (tile) {
+        tile.remove();
         removeDiv(tile.div);
-        this.tiles[x][y] = null;
       }
     }
   }
 }
 
-// Move all tiles to the given grid.
-Grid.prototype.sendAllTiles = function(grid) {
+// Move all tiles to the tray. 
+Grid.prototype.sendAllTilesToTray = function(grid) {
   for (var x = 0; x < this.size.x; x++) {
     for (var y = 0; y < this.size.y; y++) {
       var tile = this.tiles[x][y];
       if (tile) {
-        this.tiles[x][y] = null;
-        grid.addToFirstEmptyCell(tile);
+        tile.remove();
+        this.game.moveTileToTray(tile);
       }
     }
   }
@@ -177,11 +177,10 @@ Grid.prototype.expand = function(direction) {
 
 function Tray(game) {
   this.game = game;
-  this.size = vec(1, 1); // (x, y) of dimensions.
   this.div = createDiv('grid', game.div);
 
   // Customize this div.
-  resizeDiv(this.div, vScale(this.size, game.cellSize));
+  resizeDiv(this.div, vec(1, game.cellSize));
 
   this.tiles = [];
 }
@@ -211,6 +210,14 @@ Tray.prototype.removeTile = function(tile) {
   }
   this.tiles.splice(index, 1);
 };
+
+Tray.prototype.removeAllTiles = function() {
+  for (var i = 0; i < this.tiles.length; i++) {
+      var tile = this.tiles[i];
+      removeDiv(tile.div);
+  }
+  this.tiles = [];
+}
 
 Tray.prototype.findNearest = function(position) {
   var nearest = nearestCoordsInDiv(position, this.game.cellSize, this.div);
