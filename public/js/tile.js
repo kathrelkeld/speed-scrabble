@@ -32,20 +32,29 @@ Tile.prototype.mouseDown = function(e) {
   this.div.classList.add('moving');
   window.addEventListener('mousemove', this.moveListener);
   window.addEventListener('mouseup', this.upListener);
+  this.game.ghostTile.div.classList.remove('hidden');
+  this.game.moveTileTo(this.game.ghostTile, getDivCenter(this.div));
 }
 
 // onMouseMove event handler.  Active only during mouse move.
 Tile.prototype.mouseMove = function(e) {
   var curr = getDivPos(this.div);
   moveDiv(this.div, vAdd(curr, vec(e.movementX, e.movementY)));
+  this.game.ghostTile.remove();
+  this.game.moveTileTo(this.game.ghostTile, getDivCenter(this.div));
 }
 
 // onMouseUp event handler.  Active only during mouse move.
 Tile.prototype.mouseUp = function(e) {
-  this.div.classList.remove('moving');
+  // Remove further eventListeners.
   window.removeEventListener('mousemove', this.moveListener);
   window.removeEventListener('mouseup', this.upListener);
-  var halfCellSize = this.game.cellSize / 2;
-  var centerPos = vAdd(getDivPos(this.div), vec(halfCellSize, halfCellSize));
-  var cell = this.game.moveTileTo(this, centerPos);
+
+  // Dispose of ghost tile.
+  this.game.ghostTile.remove();
+  this.game.ghostTile.div.classList.add('hidden');
+  this.div.classList.remove('moving');
+
+  // Try to place tile where the center of this tile is.
+  this.game.moveTileTo(this, getDivCenter(this.div));
 }

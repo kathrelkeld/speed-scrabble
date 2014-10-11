@@ -68,6 +68,12 @@ function getDivPosBottomRight(div) {
              div.offsetTop + div.offsetHeight);
 }
 
+// Return the center of the given div.
+function getDivCenter(div) {
+  return vec(div.offsetLeft + div.offsetWidth/2,
+             div.offsetTop + div.offsetHeight/2);
+}
+
 // Whether a given mouse position is in bounds of a given div.
 function inBoundsOfDiv(position, div) {
   var topLeft = getDivPos(div);

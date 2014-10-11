@@ -16,6 +16,13 @@ GameManager.prototype.setup = function() {
   this.grid = new Grid(this, vec(this.size, this.size));
   this.addButtonHandlers(this);
   this.requestTiles();
+
+  // Create ghost tile and hide it.
+  this.ghostTile = new Tile("", this, this.tray);
+  removeDiv(this.ghostTile.div);
+  this.ghostTile.div = createDiv("ghost", this.div);
+  resizeDiv(this.ghostTile.div, vec(this.cellSize, this.cellSize));
+  this.ghostTile.div.classList.add('hidden');
 }
 
 // Add a list of tiles.

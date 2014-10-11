@@ -36,8 +36,20 @@ body {
   }
 }
 
+.ghost {
+  background-color: grey;
+  position: absolute;
+  z-index: 10;
+
+  &.hidden {
+    z-index: 0;
+    background-color: rgba(0, 0, 0, 0.0);
+  }
+}
+
 .cell {
   background-color: #d9d9d9;
   position: absolute;
   border: 1px solid #0861A1;
+  z-index: 1;
 }
