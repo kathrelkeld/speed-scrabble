@@ -72,12 +72,29 @@ Grid.prototype.sendAllTilesToTray = function(grid) {
   }
 }
 
+// Draw the ghost tile.
+Grid.prototype.addGhost = function(tile, position) {
+  tile.position = position;
+  tile.grid = this;
+  tile.redraw();
+}
+
 // Insert a tile at a given position.
 Grid.prototype.addTile = function(tile, position) {
   this.tiles[position.x][position.y] = tile;
   tile.position = position;
   tile.grid = this;
   tile.redraw();
+  if (tile.position.x == 0) {
+    this.shiftTiles("right");
+  } else if (tile.position.x == this.size.x - 1) {
+    this.shiftTiles("left");
+  }
+  if (tile.position.y == 0) {
+    this.shiftTiles("down");
+  } else if (tile.position.y == this.size.y - 1) {
+    this.shiftTiles("up");
+  }
 }
 
 // Shift entire board in one direction.
@@ -97,7 +114,7 @@ Grid.prototype.shiftTiles = function(direction) {
     }
     for (var i=0; i < removed.length; i++) {
       if (removed[i]) {
-        this.game.tray.addToFirstEmptyCell(removed[i]);
+        this.game.tray.moveTileToTray(removed);
       }
     }
   }
@@ -111,16 +128,14 @@ Grid.prototype.shiftTiles = function(direction) {
     }
     if (direction == "up" || direction == "down") {
       if (removed) {
-        this.game.tray.addToFirstEmptyCell(removed);
+        this.game.tray.moveTileToTray(removed);
       }
     }
     for (var j=0; j < this.size.y; j++) {
       var tile = this.tiles[i][j];
       if (tile) {
         tile.position = vec(i, j);
-        var newPosition = vAdd(gridCorner,
-            vScale(tile.position, this.game.cellSize));
-        moveDiv(tile.div, newPosition);
+        tile.redraw();
       }
     }
   }
@@ -198,6 +213,10 @@ Tray.prototype.addTile = function(tile, index) {
   tile.position = vec(index, 0);
   tile.redraw();
 };
+
+Tray.prototype.addGhost = function(tile, index) {
+  this.addTile(tile, index);
+}
 
 Tray.prototype.removeTile = function(tile) {
   var index = this.tiles.indexOf(tile);

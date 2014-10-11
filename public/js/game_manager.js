@@ -51,6 +51,13 @@ GameManager.prototype.moveTileTo = function(tile, position) {
   results[0].addTile(tile, results[1]);
 }
 
+// Place a ghost, given its position.
+GameManager.prototype.moveGhostTo = function(tile, position) {
+  // Try to add to the grid or the tray at this position.
+  var results = this.getNextPosition(position);
+  results[0].addGhost(tile, results[1]);
+}
+
 // Place a tile back in the tray.
 GameManager.prototype.moveTileToTray = function(tile) {
   // Try to add to the grid or the tray at this position.

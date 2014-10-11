@@ -33,7 +33,7 @@ Tile.prototype.mouseDown = function(e) {
   window.addEventListener('mousemove', this.moveListener);
   window.addEventListener('mouseup', this.upListener);
   this.game.ghostTile.div.classList.remove('hidden');
-  this.game.moveTileTo(this.game.ghostTile, getDivCenter(this.div));
+  this.game.moveGhostTo(this.game.ghostTile, getDivCenter(this.div));
 }
 
 // onMouseMove event handler.  Active only during mouse move.
@@ -41,7 +41,7 @@ Tile.prototype.mouseMove = function(e) {
   var curr = getDivPos(this.div);
   moveDiv(this.div, vAdd(curr, vec(e.movementX, e.movementY)));
   this.game.ghostTile.remove();
-  this.game.moveTileTo(this.game.ghostTile, getDivCenter(this.div));
+  this.game.moveGhostTo(this.game.ghostTile, getDivCenter(this.div));
 }
 
 // onMouseUp event handler.  Active only during mouse move.
