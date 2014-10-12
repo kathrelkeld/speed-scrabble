@@ -9,6 +9,7 @@ function Tile(value, game, grid) {
   this.div.innerHTML = value;
   this.div.addEventListener('mousedown', this.mouseDown.bind(this));
   resizeDiv(this.div, vec(game.cellSize, game.cellSize));
+  this.div.style.lineHeight = game.cellSize + "px";
 
   // Add values needed for mouse movement.
   this.moveListener = this.mouseMove.bind(this);

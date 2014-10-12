@@ -2,7 +2,7 @@ function GameManager(size, startTiles) {
   gamemanager = this;
   this.size = size;
   this.startTiles = startTiles;
-  this.cellSize = 64;
+  this.cellSize = 48;
   this.div = document.getElementById('gameboard');
 
   this.setup()
