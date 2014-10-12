@@ -35,6 +35,7 @@ Grid.prototype.setup = function() {
   this.div.addEventListener('mousedown', this.mouseDown.bind(this));
   window.addEventListener('keydown', this.keypress.bind(this));
   this.auraPos = vec(0, 0);
+  this.auraDirection = "right";
 }
 
 Grid.prototype.mouseDown = function(e) {
@@ -79,6 +80,24 @@ Grid.prototype.removeHighlightTile = function() {
 
 Grid.prototype.keypress = function(e) {
   switch(e.keyCode) {
+    case 13: // enter
+      e.preventDefault();
+      if (this.auraDirection == "down") {
+        this.moveHighlight("down");
+      } else {
+        setMessages("Text enter direction is: vertical");
+        this.auraDirection = "down";
+      }
+      break;
+    case 9: // tab
+      e.preventDefault();
+      if (this.auraDirection == "right") {
+        this.moveHighlight("right");
+      } else {
+        setMessages("Text enter direction is: horizontal");
+        this.auraDirection = "right";
+      }
+      break;
     case 37: // left arrow
       e.preventDefault();
       this.moveHighlight("left");
@@ -87,19 +106,11 @@ Grid.prototype.keypress = function(e) {
       e.preventDefault();
       this.moveHighlight("right");
       break;
-    case 9: // tab
-      e.preventDefault();
-      this.moveHighlight("right");
-      break;
     case 38: // up arrow
       e.preventDefault();
       this.moveHighlight("up");
       break;
     case 40: // down arrow
-      e.preventDefault();
-      this.moveHighlight("down");
-      break;
-    case 13: // enter
       e.preventDefault();
       this.moveHighlight("down");
       break;
@@ -114,6 +125,7 @@ Grid.prototype.keypress = function(e) {
             this.removeHighlightTile();
             tile.remove();
             this.addTile(tile, this.auraPos);
+            this.moveHighlight(this.auraDirection);
           }
       }
   }
