@@ -101,6 +101,11 @@ GameManager.prototype.verifyTiles = function() {
   }
   sendAndGetJSON(tileValues, "/verify", function(result) {
     console.log(result);
+    if (result) {
+      setMessages("You win!");
+    } else {
+      setMessages("Board is incomplete");
+    }
   });
 }
 
@@ -115,12 +120,6 @@ GameManager.prototype.addButtonHandlers = function() {
   document.getElementById("reload").onclick = function() {
     gamemanager.reload();
   };
-  var directions = ["left", "right", "down", "up"];
-  directions.forEach(function(entry) {
-    document.getElementById(entry).onclick = function() {
-        gamemanager.grid.shiftTiles(entry);
-    };
-  });
   document.getElementById("verify").onclick = function() {
     gamemanager.verifyTiles();
   };
@@ -128,6 +127,10 @@ GameManager.prototype.addButtonHandlers = function() {
 
 function newGameManager() {
   new GameManager(12, 12);
+}
+
+function setMessages(text) {
+    document.getElementById("messages").innerHTML = text;
 }
 
 window.requestAnimationFrame(function() {
