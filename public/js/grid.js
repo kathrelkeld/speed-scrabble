@@ -56,43 +56,65 @@ Grid.prototype.removeHighlight = function() {
   }
 }
 
+// Take a keyboard event and move the highlight in the given direction.
+Grid.prototype.moveHighlight = function(direction) {
+  if (direction == "left" && this.auraPos.x > 0) {
+    this.addHighlight(vAdd(vec(-1, 0), this.auraPos));
+  } else if (direction == "right" && this.auraPos.x < this.size.x -1) {
+    this.addHighlight(vAdd(vec(1, 0), this.auraPos));
+  } else if (direction == "up" && this.auraPos.y > 0) {
+    this.addHighlight(vAdd(vec(0, -1), this.auraPos));
+  } else if (direction == "down" && this.auraPos.y < this.size.y -1) {
+    this.addHighlight(vAdd(vec(0, 1), this.auraPos));
+  }
+}
+
+Grid.prototype.removeHighlightTile = function() {
+  var curr = this.getPosition(this.auraPos);
+  if (curr != null) {
+    curr.remove();
+    this.game.moveTileToTray(curr);
+  }
+}
+
 Grid.prototype.keypress = function(e) {
   switch(e.keyCode) {
     case 37: // left arrow
       e.preventDefault();
-      if (this.auraPos.x > 0) {
-        this.addHighlight(vAdd(vec(-1, 0), this.auraPos));
-      }
+      this.moveHighlight("left");
       break;
     case 39: // right arrow
       e.preventDefault();
-      if (this.auraPos.x < this.size.x - 1) {
-        this.addHighlight(vAdd(vec(1, 0), this.auraPos));
-      }
+      this.moveHighlight("right");
+      break;
+    case 9: // tab
+      e.preventDefault();
+      this.moveHighlight("right");
       break;
     case 38: // up arrow
       e.preventDefault();
-      if (this.auraPos.y > 0) {
-        this.addHighlight(vAdd(vec(0, -1), this.auraPos));
-      }
+      this.moveHighlight("up");
       break;
     case 40: // down arrow
       e.preventDefault();
-      if (this.auraPos.y < this.size.y - 1) {
-        this.addHighlight(vAdd(vec(0, 1), this.auraPos));
-      }
+      this.moveHighlight("down");
       break;
+    case 13: // enter
+      e.preventDefault();
+      this.moveHighlight("down");
+      break;
+    case 8: // backspace
+      e.preventDefault();
+      this.removeHighlightTile();
     default:
       if (this.auraDiv != null) {
-        if (this.getPosition(this.auraPos) == null) {
           var key = String.fromCharCode(e.keyCode).toUpperCase();
           var tile = this.game.tray.findByValue(key);
           if (tile != null) {
+            this.removeHighlightTile();
             tile.remove();
             this.addTile(tile, this.auraPos);
           }
-        }
-        this.removeHighlight();
       }
   }
 }
