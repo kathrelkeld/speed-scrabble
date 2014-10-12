@@ -76,6 +76,26 @@ Grid.prototype.removeHighlightedTile = function() {
   if (curr != null) {
     curr.remove();
     this.game.moveTileToTray(curr);
+    return true;
+  }
+  return false;
+}
+
+Grid.prototype.setHighlightDirection = function (direction) {
+  if (direction == "down") {
+    setMessages("Text enter direction is: vertical");
+    this.auraDirection = "down";
+  } else {
+    setMessages("Text enter direction is: horizontal");
+    this.auraDirection = "right";
+  }
+}
+
+Grid.prototype.toggleHighlightDirection = function () {
+  if (this.auraDirection == "right") {
+    this.setHighlightDirection("down");
+  } else {
+    this.setHighlightDirection("right");
   }
 }
 
@@ -83,21 +103,31 @@ Grid.prototype.keypress = function(e) {
   switch(e.keyCode) {
     case 13: // enter
       e.preventDefault();
-      if (this.auraDirection == "down") {
-        this.moveHighlight("down");
-      } else {
-        setMessages("Text enter direction is: vertical");
-        this.auraDirection = "down";
-      }
+      this.setHighlightDirection("down");
+      this.moveHighlight("down")
       break;
     case 9: // tab
       e.preventDefault();
-      if (this.auraDirection == "right") {
-        this.moveHighlight("right");
-      } else {
-        setMessages("Text enter direction is: horizontal");
-        this.auraDirection = "right";
+      this.setHighlightDirection("right");
+      this.moveHighlight("right")
+      break;
+    case 32: // space
+      e.preventDefault();
+      this.toggleHighlightDirection();
+      break;
+    case 8: // backspace
+      e.preventDefault();
+      if (!this.removeHighlightedTile()) {
+        if (this.auraDirection == "down") {
+          this.moveHighlight("up")
+        } else {
+          this.moveHighlight("left")
+        }
       }
+      break;
+    case 46: // delete
+      e.preventDefault();
+      this.removeHighlightedTile();
       break;
     case 37: // left arrow
       e.preventDefault();
@@ -114,14 +144,6 @@ Grid.prototype.keypress = function(e) {
     case 40: // down arrow
       e.preventDefault();
       this.moveHighlight("down");
-      break;
-    case 8: // backspace
-      e.preventDefault();
-      this.removeHighlightedTile();
-      break;
-    case 46: // delete
-      e.preventDefault();
-      this.removeHighlightedTile();
       break;
     default:
       if (this.auraDiv != null) {
