@@ -71,9 +71,10 @@ Grid.prototype.moveHighlight = function(direction) {
   }
 }
 
-Grid.prototype.removeHighlightedTile = function() {
+// Remove the highlighted tile unless its value is exception.
+Grid.prototype.removeHighlightedTile = function(exception) {
   var curr = this.getPosition(this.auraPos);
-  if (curr != null) {
+  if (curr != null && curr.value != exception) {
     curr.remove();
     this.game.moveTileToTray(curr);
     return true;
@@ -148,6 +149,11 @@ Grid.prototype.keypress = function(e) {
     default:
       if (this.auraDiv != null) {
           var key = String.fromCharCode(e.keyCode).toUpperCase();
+          var curr = this.getPosition(this.auraPos);
+          if (curr && curr.value == key) {
+            this.moveHighlight(this.auraDirection);
+            break;
+          }
           var tile = this.game.tray.findByValue(key);
           if (tile != null) {
             this.removeHighlightedTile();
@@ -155,7 +161,7 @@ Grid.prototype.keypress = function(e) {
             this.addTile(tile, this.auraPos);
             this.moveHighlight(this.auraDirection);
           }
-      }
+        }
   }
 }
 
