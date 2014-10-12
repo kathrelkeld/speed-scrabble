@@ -33,34 +33,68 @@ Grid.prototype.setup = function() {
 
   // Add event for keypresses
   this.div.addEventListener('mousedown', this.mouseDown.bind(this));
-  this.keypressListener = this.keypress.bind(this);
+  window.addEventListener('keydown', this.keypress.bind(this));
+  this.auraPos = vec(0, 0);
 }
 
 Grid.prototype.mouseDown = function(e) {
-  this.removeHighlight();
   var intCoords = nearestCoordsInDiv(e, this.game.cellSize, this.div);
-  this.auraPos = intCoords;
-  this.auraDiv = this.cellDivs[intCoords.x][intCoords.y];
+  this.addHighlight(intCoords);
+}
+
+Grid.prototype.addHighlight = function(position) {
+  this.removeHighlight();
+  this.auraPos = position;
+  this.auraDiv = this.cellDivs[position.x][position.y];
   this.auraDiv.classList.add('highlighted');
-  window.addEventListener('keypress', this.keypressListener);
 }
 
 Grid.prototype.removeHighlight = function() {
   if (this.auraDiv != null) {
     this.auraDiv.classList.remove('highlighted');
     this.auraDiv = null;
-    window.removeEventListener('keypress', this.keypressListener);
   }
 }
 
 Grid.prototype.keypress = function(e) {
-  var key = String.fromCharCode(e.keyCode).toUpperCase();
-  var tile = this.game.tray.findByValue(key);
-  if (tile != null) {
-    tile.remove();
-    this.addTile(tile, this.auraPos);
+  switch(e.keyCode) {
+    case 37: // left arrow
+      e.preventDefault();
+      if (this.auraPos.x > 0) {
+        this.addHighlight(vAdd(vec(-1, 0), this.auraPos));
+      }
+      break;
+    case 39: // right arrow
+      e.preventDefault();
+      if (this.auraPos.x < this.size.x - 1) {
+        this.addHighlight(vAdd(vec(1, 0), this.auraPos));
+      }
+      break;
+    case 38: // up arrow
+      e.preventDefault();
+      if (this.auraPos.y > 0) {
+        this.addHighlight(vAdd(vec(0, -1), this.auraPos));
+      }
+      break;
+    case 40: // down arrow
+      e.preventDefault();
+      if (this.auraPos.y < this.size.y - 1) {
+        this.addHighlight(vAdd(vec(0, 1), this.auraPos));
+      }
+      break;
+    default:
+      if (this.auraDiv != null) {
+        if (this.getPosition(this.auraPos) == null) {
+          var key = String.fromCharCode(e.keyCode).toUpperCase();
+          var tile = this.game.tray.findByValue(key);
+          if (tile != null) {
+            tile.remove();
+            this.addTile(tile, this.auraPos);
+          }
+        }
+        this.removeHighlight();
+      }
   }
-  this.removeHighlight();
 }
 
 // Get the value of the given position in the tile matrix.

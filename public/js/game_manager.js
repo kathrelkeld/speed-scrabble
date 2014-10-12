@@ -23,6 +23,8 @@ GameManager.prototype.setup = function() {
   this.ghostTile.div = createDiv("ghost", this.div);
   resizeDiv(this.ghostTile.div, vec(this.cellSize, this.cellSize));
   this.ghostTile.div.classList.add('hidden');
+
+  // Add arrow key listener.
 }
 
 // Add a list of tiles.
@@ -78,12 +80,13 @@ GameManager.prototype.requestNewTile = function() {
   });
 }
 
-// Remove game divs from board.
+// Remove all tiles and start a new game.
 GameManager.prototype.reload = function() {
   console.log("Reloading game board!");
   this.grid.removeAllTiles();
   this.tray.removeAllTiles();
   this.requestTiles()
+  setMessages("Game has started!");
 }
 
 // Send gameboard for verification.
