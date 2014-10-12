@@ -28,6 +28,7 @@ Tile.prototype.remove = function() {
 
 // onMouseDown event handler.  Always active for this tile.
 Tile.prototype.mouseDown = function(e) {
+  this.game.grid.removeHighlight();
   this.remove();
   this.div.classList.add('moving');
   window.addEventListener('mousemove', this.moveListener);

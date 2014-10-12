@@ -52,4 +52,9 @@ body {
   position: absolute;
   border: 1px solid #0861A1;
   z-index: 1;
+
+  &.highlighted {
+    z-index: 8;
+    border: 3px solid #FFFF00;
+  }
 }

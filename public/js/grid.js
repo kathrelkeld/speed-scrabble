@@ -18,8 +18,8 @@ Grid.prototype.createCellDiv = function(position) {
   return div;
 }
 
-// Create x by y grids of cell divs and of no tiles.
 Grid.prototype.setup = function() {
+  // Create x by y grids of cell divs and of no tiles.
   this.cellDivs = [];
   this.tiles = [];
   for (var x = 0; x < this.size.x; x++) {
@@ -30,6 +30,37 @@ Grid.prototype.setup = function() {
       this.tiles[x].push(null);
     }
   }
+
+  // Add event for keypresses
+  this.div.addEventListener('mousedown', this.mouseDown.bind(this));
+  this.keypressListener = this.keypress.bind(this);
+}
+
+Grid.prototype.mouseDown = function(e) {
+  this.removeHighlight();
+  var intCoords = nearestCoordsInDiv(e, this.game.cellSize, this.div);
+  this.auraPos = intCoords;
+  this.auraDiv = this.cellDivs[intCoords.x][intCoords.y];
+  this.auraDiv.classList.add('highlighted');
+  window.addEventListener('keypress', this.keypressListener);
+}
+
+Grid.prototype.removeHighlight = function() {
+  if (this.auraDiv != null) {
+    this.auraDiv.classList.remove('highlighted');
+    this.auraDiv = null;
+    window.removeEventListener('keypress', this.keypressListener);
+  }
+}
+
+Grid.prototype.keypress = function(e) {
+  var key = String.fromCharCode(e.keyCode).toUpperCase();
+  var tile = this.game.tray.findByValue(key);
+  if (tile != null) {
+    tile.remove();
+    this.addTile(tile, this.auraPos);
+  }
+  this.removeHighlight();
 }
 
 // Get the value of the given position in the tile matrix.
@@ -43,7 +74,7 @@ Grid.prototype.setPosition = function(position, value) {
 }
 
 Grid.prototype.removeTile = function(tile) {
-  this.tiles[tile.position.x][tile.position.y] = null;
+  this.setPosition(tile.position, null);
 }
 
 // Destroy all current tiles.
@@ -243,3 +274,13 @@ Tray.prototype.findNearest = function(position) {
   }
   return nearest.x;
 };
+
+Tray.prototype.findByValue = function(value) {
+  for (var i = 0; i < this.tiles.length; i++) {
+      var tile = this.tiles[i];
+      if (tile.value == value) {
+        return tile;
+      }
+  }
+  return null;
+}
