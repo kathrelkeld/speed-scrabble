@@ -39,7 +39,8 @@ Grid.prototype.setup = function() {
 }
 
 Grid.prototype.mouseDown = function(e) {
-  var intCoords = nearestCoordsInDiv(e, this.game.cellSize, this.div);
+  var relPos = vAdd(e, vec(window.scrollX, window.scrollY));
+  var intCoords = nearestCoordsInDiv(relPos, this.game.cellSize, this.div);
   this.addHighlight(intCoords);
 }
 
@@ -70,7 +71,7 @@ Grid.prototype.moveHighlight = function(direction) {
   }
 }
 
-Grid.prototype.removeHighlightTile = function() {
+Grid.prototype.removeHighlightedTile = function() {
   var curr = this.getPosition(this.auraPos);
   if (curr != null) {
     curr.remove();
@@ -116,13 +117,13 @@ Grid.prototype.keypress = function(e) {
       break;
     case 8: // backspace
       e.preventDefault();
-      this.removeHighlightTile();
+      this.removeHighlightedTile();
     default:
       if (this.auraDiv != null) {
           var key = String.fromCharCode(e.keyCode).toUpperCase();
           var tile = this.game.tray.findByValue(key);
           if (tile != null) {
-            this.removeHighlightTile();
+            this.removeHighlightedTile();
             tile.remove();
             this.addTile(tile, this.auraPos);
             this.moveHighlight(this.auraDirection);
