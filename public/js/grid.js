@@ -118,6 +118,11 @@ Grid.prototype.keypress = function(e) {
     case 8: // backspace
       e.preventDefault();
       this.removeHighlightedTile();
+      break;
+    case 46: // delete
+      e.preventDefault();
+      this.removeHighlightedTile();
+      break;
     default:
       if (this.auraDiv != null) {
           var key = String.fromCharCode(e.keyCode).toUpperCase();
