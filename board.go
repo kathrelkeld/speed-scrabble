@@ -208,3 +208,18 @@ func (b Board) verifyBoard() Score {
 	// Return true if all other checks have passed.
 	return result
 }
+
+func (b Board) String() string {
+	result := ""
+	for i := 0; i < len(b); i++ {
+		for j := 0; j < len(b[0]); j++ {
+			if b[i][j] == "" {
+				result += " "
+			} else {
+				result += b[i][j]
+			}
+		}
+		result += "\n"
+	}
+	return result
+}
