@@ -172,8 +172,6 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 	}
 	// Return false if set and game do not agree on tile values.
 	t := c.getAllTilesServed()
-	log.Println("Game:", s)
-	log.Println("Board:", t)
 	tileCount := make(map[string]int)
 	for _, elt := range t {
 		tileCount[elt.Value] += 1
@@ -195,31 +193,36 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 // Return true if this board is a valid soultion
 func (b Board) scoreBoard(c *Client) Score {
 	result := Score{Valid: false, Score: c.getMaxScore()}
-	// Find all components on this board.  A valid board has only 1.
+
+	// Find all components on this board and score them.
 	components := b.findComponents()
-	if len(components) != 1 {
-		score := 0
-		for _, comp := range components {
+	score := 0
+	for _, comp := range components {
+		// A valid component contains only valid words.
+		if b.verifyWordsInComponent(comp) {
 			newScore := b.scoreComponent(comp)
 			if newScore > score {
 				score = newScore
 			}
 			log.Println("Found component with score", newScore)
 		}
-		result.Score -= score
+	}
+	result.Score -= score
+
+	// A valid board has a score of 0
+	if result.Score != 0 {
 		return result
 	}
-	// A valid component must contain exactly the tiles served.
+	// A valid board has only one component.
+	if len(components) != 1 {
+		return result
+	}
+	// A valid board must contain exactly the tiles served.
 	comp := components[0]
 	if !b.compareTiles(c, comp) {
 		return result
 	}
-	// A valid component contains only valid words.
-	if !b.verifyWordsInComponent(comp) {
-		return result
-	}
 	// Return true if all other checks have passed.
-	result.Score = 0
 	result.Valid = true
 	return result
 }
