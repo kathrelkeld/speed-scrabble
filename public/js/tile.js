@@ -1,12 +1,13 @@
-function Tile(value, game, grid) {
+function Tile(tileStruct, game, grid) {
   this.game = game;
   this.grid = grid;
   this.position = vec(0, 0);
-  this.value = value;
+  this.value = tileStruct["Value"];
+  this.points = tileStruct["Points"];
   this.div = createDiv('tile', grid.div);
 
   // Customize tile div.
-  this.div.innerHTML = value;
+  this.div.innerHTML = this.value;
   this.div.addEventListener('mousedown', this.mouseDown.bind(this));
   resizeDiv(this.div, vec(game.cellSize, game.cellSize));
   this.div.style.lineHeight = game.cellSize + "px";

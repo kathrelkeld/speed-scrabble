@@ -103,8 +103,7 @@ GameManager.prototype.verifyTiles = function() {
     }
   }
   sendAndGetJSON(tileValues, "/verify", function(result) {
-    console.log(result);
-    if (result) {
+    if (result["Valid"]) {
       setMessages("You win!");
     } else {
       setMessages("Board is incomplete");

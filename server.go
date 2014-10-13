@@ -22,7 +22,7 @@ func sendJSON(v interface{}, w http.ResponseWriter) {
 
 func handleAddTile(w http.ResponseWriter, req *http.Request) {
 	tile := globalClient.getNextTile()
-	if tile == "" {
+	if tile.Value == "" {
 		http.Error(w, "No more tiles!", http.StatusBadRequest)
 		return
 	}
@@ -35,6 +35,7 @@ func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 	globalClient.addToGame(globalGame)
 	tiles := globalClient.getInitialTiles()
 	log.Println("Sending Tiles:", tiles)
+	//sendJSONSlice(tiles, w)
 	sendJSON(tiles, w)
 }
 
@@ -48,7 +49,7 @@ func handleVerifyTiles(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	score := board.verifyBoard()
-	sendJSON(score.valid, w)
+	sendJSON(score, w)
 }
 
 func main() {

@@ -56,8 +56,8 @@ func (s VecSet) insert(elt Vec) {
 }
 
 type Score struct {
-	valid bool
-	score int
+	Valid bool
+	Score int
 }
 
 type Board [][]string
@@ -164,7 +164,7 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 	log.Println("Board:", t)
 	tileCount := make(map[string]int)
 	for _, elt := range t {
-		tileCount[elt] += 1
+		tileCount[elt.Value] += 1
 	}
 	for key := range s {
 		tileCount[b.value(key)] -= 1
@@ -182,28 +182,28 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 
 // Return true if this board is a valid soultion
 func (b Board) verifyBoard() Score {
-	result := Score{valid: true, score: 0}
+	result := Score{Valid: true, Score: 0}
 	// Find all components on this board.  A valid board has only 1.
 	components := b.findComponents()
 	if len(components) != 1 {
 		score := 0
 		for _, comp := range components {
 			newScore := b.scoreComponent(comp)
-			if newScore > result.score {
-				result.score = newScore
+			if newScore > score {
+				score = newScore
 			}
 			log.Println("Found component with score", newScore)
 		}
-		log.Println("Your score was:", globalClient.getMaxScore()-score)
+		result.Score = globalClient.getMaxScore() - score
 	}
 	// A valid component must contain exactly the tiles served.
 	comp := components[0]
 	if !b.compareTiles(globalClient, comp) {
-		result.valid = false
+		result.Valid = false
 	}
 	// A valid component contains only valid words.
 	if !b.verifyWordsInComponent(comp) {
-		result.valid = false
+		result.Valid = false
 	}
 	// Return true if all other checks have passed.
 	return result

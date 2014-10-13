@@ -65,24 +65,24 @@ func (c *Client) getInitialTiles() Tiles {
 	tiles := c.game.tiles[:12]
 	score := 0
 	for _, elt := range tiles {
-		score += pointValues[elt]
+		score += elt.Points
 	}
 	c.mu.Lock()
 	c.tilesServed = 12
 	c.maxScore = score
 	c.mu.Unlock()
-	return c.game.tiles[:12]
+	return tiles
 }
 
-func (c *Client) getNextTile() string {
+func (c *Client) getNextTile() Tile {
 	if c.tilesServed == len(c.game.tiles) {
 		log.Println("No tiles remaining to send!")
-		return ""
+		return Tile{Value: "", Points: 0}
 	}
 	c.mu.Lock()
 	tile := c.game.tiles[c.tilesServed]
 	c.tilesServed += 1
-	c.maxScore += pointValues[tile]
+	c.maxScore += tile.Points
 	c.mu.Unlock()
 	return tile
 }
@@ -116,13 +116,19 @@ func (s ClientSet) insert(elt *Client) {
 	s[elt] = struct{}{}
 }
 
-type Tiles []string
+type Tile struct {
+	Value  string
+	Points int
+}
+
+type Tiles []Tile
 
 func newTiles() Tiles {
 	var tiles Tiles
 	for k, v := range freqMap {
 		for j := 0; j < v; j++ {
-			tiles = append(tiles, k)
+			tile := Tile{Value: k, Points: pointValues[k]}
+			tiles = append(tiles, tile)
 		}
 	}
 	for i := range tiles {
