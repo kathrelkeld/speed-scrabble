@@ -62,6 +62,18 @@ type Score struct {
 
 type Board [][]string
 
+func makeBoard(x, y int, letters ...string) Board {
+	b := Board{}
+	if len(letters) != x*y {
+		log.Println("Letters count did not match given dimensions!")
+		return b
+	}
+	for i := 0; i < x; i++ {
+		b = append(b, letters[i*y:(i+1)*y])
+	}
+	return b
+}
+
 func (b Board) value(v Vec) string {
 	return b[v.x][v.y]
 }
@@ -181,8 +193,8 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 }
 
 // Return true if this board is a valid soultion
-func (b Board) verifyBoard() Score {
-	result := Score{Valid: true, Score: 0}
+func (b Board) scoreBoard(c *Client) Score {
+	result := Score{Valid: false, Score: c.getMaxScore()}
 	// Find all components on this board.  A valid board has only 1.
 	components := b.findComponents()
 	if len(components) != 1 {
@@ -194,18 +206,21 @@ func (b Board) verifyBoard() Score {
 			}
 			log.Println("Found component with score", newScore)
 		}
-		result.Score = globalClient.getMaxScore() - score
+		result.Score -= score
+		return result
 	}
 	// A valid component must contain exactly the tiles served.
 	comp := components[0]
-	if !b.compareTiles(globalClient, comp) {
-		result.Valid = false
+	if !b.compareTiles(c, comp) {
+		return result
 	}
 	// A valid component contains only valid words.
 	if !b.verifyWordsInComponent(comp) {
-		result.Valid = false
+		return result
 	}
 	// Return true if all other checks have passed.
+	result.Score = 0
+	result.Valid = true
 	return result
 }
 
