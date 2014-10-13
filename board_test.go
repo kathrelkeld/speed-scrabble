@@ -54,20 +54,36 @@ func Example_MissingTilesScore() {
 	// Output: {false 4}
 }
 
+func Example_MismatchedValueForScore() {
+	var testGame = &Game{tiles: Tiles{aTile, cTile, tTile, tTile}}
+	var testClient = &Client{maxScore: 6, tilesServed: 4, game: testGame}
+	b := makeBoard(3, 3, "C", "A", "T", "", "", "A", "", "", "N")
+	fmt.Println(b.scoreBoard(testClient))
+	// Output: {false 6}
+}
+
 func Example_MismatchedButValidTilesScore() {
 	var testGame = &Game{tiles: Tiles{aTile, cTile, tTile, tTile}}
-	var testClient = &Client{maxScore: 6, tilesServed: 5, game: testGame}
+	var testClient = &Client{maxScore: 6, tilesServed: 4, game: testGame}
 	b := makeBoard(3, 3, "C", "A", "T", "", "S", "", "", "", "")
 	fmt.Println(b.scoreBoard(testClient))
-	// Output: {false 0}
+	// Output: {false 6}
+}
+
+func Example_TooManyBoardTilesScore() {
+	var testGame = &Game{tiles: Tiles{aTile, cTile, tTile, cTile}}
+	var testClient = &Client{maxScore: 6, tilesServed: 4, game: testGame}
+	b := makeBoard(3, 3, "C", "A", "T", "", "", "A", "", "", "N")
+	fmt.Println(b.scoreBoard(testClient))
+	// Output: {false 6}
 }
 
 func Example_MultiWordOneFailScore() {
-	var testGame = &Game{tiles: Tiles{aTile, cTile, tTile, cTile, tTile}}
-	var testClient = &Client{maxScore: 9, tilesServed: 5, game: testGame}
-	b := makeBoard(3, 3, "C", "A", "T", "", "T", "", "", "C", "")
+	var testGame = &Game{tiles: Tiles{aTile, cTile, tTile, cTile}}
+	var testClient = &Client{maxScore: 8, tilesServed: 4, game: testGame}
+	b := makeBoard(3, 3, "C", "A", "T", "", "N", "", "", "D", "")
 	fmt.Println(b.scoreBoard(testClient))
-	// Output: {false 9}
+	// Output: {false 8}
 }
 
 func Example_MultiComponentPassScore() {

@@ -162,15 +162,8 @@ func (b Board) scoreComponent(c VecSet) int {
 	return score
 }
 
-// Compare a game's tiles to the tiles pointed to by a given set.
-func (b Board) compareTiles(c *Client, s VecSet) bool {
-	// Return false if set and game do not have same count of tiles.
-	tilesServed := c.getTilesServedCount()
-	if len(s) != tilesServed {
-		log.Println("Game and board were not same length")
-		return false
-	}
-	// Return false if set and game do not agree on tile values.
+// Return false if set and game do not agree on tile values.
+func (b Board) compareTileValues(c *Client, s VecSet) bool {
 	t := c.getAllTilesServed()
 	tileCount := make(map[string]int)
 	for _, elt := range t {
@@ -179,10 +172,9 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 	for key := range s {
 		tileCount[b.value(key)] -= 1
 	}
-	log.Println("Count:", tileCount)
-	for key, count := range tileCount {
+	for _, count := range tileCount {
 		if count != 0 {
-			log.Println("Game and board did not agree on", key, "values")
+			log.Println("Value difference counts:", tileCount)
 			return false
 		}
 	}
@@ -192,7 +184,8 @@ func (b Board) compareTiles(c *Client, s VecSet) bool {
 
 // Return true if this board is a valid soultion
 func (b Board) scoreBoard(c *Client) Score {
-	result := Score{Valid: false, Score: c.getMaxScore()}
+	maxScore := c.getMaxScore()
+	result := Score{Valid: false, Score: maxScore}
 
 	// Find all components on this board and score them.
 	components := b.findComponents()
@@ -209,17 +202,32 @@ func (b Board) scoreBoard(c *Client) Score {
 	}
 	result.Score -= score
 
-	// A valid board has a score of 0
+	// A valid board has a score of 0.
 	if result.Score != 0 {
+		if result.Score < 0 {
+			log.Println("Impossible score: cheating suspected!")
+			result.Score = maxScore
+		}
 		return result
 	}
 	// A valid board has only one component.
 	if len(components) != 1 {
 		return result
 	}
-	// A valid board must contain exactly the tiles served.
 	comp := components[0]
-	if !b.compareTiles(c, comp) {
+	// A valid board must contain all the tiles served and no more.
+	tilesServedCount := c.getTilesServedCount()
+	if len(comp) != tilesServedCount {
+		if len(comp) > tilesServedCount {
+			log.Println("Impossible number of tiles: cheating suspected!")
+			result.Score = maxScore
+		}
+		return result
+	}
+	// A valid board must contain exactly the tiles served.
+	if !b.compareTileValues(c, comp) {
+		log.Println("Impossibily mismatched tiles: cheating suspected!")
+		result.Score = maxScore
 		return result
 	}
 	// Return true if all other checks have passed.
