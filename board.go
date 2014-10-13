@@ -44,6 +44,10 @@ func (a Vec) add(b Vec) Vec {
 	return Vec{a.x + b.x, a.y + b.y}
 }
 
+func (v Vec) scale(c int) Vec {
+	return Vec{v.x * c, v.y * c}
+}
+
 type VecSet map[Vec]struct{}
 
 func (s VecSet) contains(elt Vec) bool {
@@ -116,20 +120,28 @@ func (b Board) findComponents() []VecSet {
 }
 
 // Given a tile and a direction, follow the word in that direction.
-// Returns false if any problems are found
-// (i.e. more than 1 letter yet not a word)
-func (b Board) followWord(v Vec, comp VecSet, d Vec) bool {
+// Returns the word, if any.
+func (b Board) followWord(v Vec, comp VecSet, d Vec) (bool, VecSet) {
+	result := VecSet{}
 	next := v.add(d)
 	if !comp.contains(next) {
-		return true
+		return true, result
 	}
+	result.insert(v)
 	word := b.value(v)
 	for comp.contains(next) {
+		result.insert(next)
 		word += b.value(next)
 		next = next.add(d)
 	}
-	log.Println("Found word", word)
-	return verifyWord(word)
+	log.Println("Found supposed word:", word)
+	return verifyWord(word), result
+}
+
+// Check whether given tile position is part of multiple words.
+func (b Board) partOfMultipleWords(v Vec, comp VecSet) bool {
+	return (comp.contains(v.add(Vec{-1,0})) || comp.contains(v.add(Vec{1,0}))) &&
+	       (comp.contains(v.add(Vec{0,-1})) || comp.contains(v.add(Vec{0,1})))
 }
 
 // Verify that the given component list has valid words.
@@ -138,20 +150,31 @@ func (b Board) verifyWordsInComponent(comp VecSet) bool {
 	if len(comp) <= 1 {
 		return false
 	}
+	result := true
+	invalid := VecSet{}
 	// Check all tiles in the vert and horizontal directions.
 	for v := range comp {
-		if !comp.contains(v.add(Vec{-1, 0})) {
-			if !b.followWord(v, comp, Vec{1, 0}) {
-				return false
-			}
-		}
-		if !comp.contains(v.add(Vec{0, -1})) {
-			if !b.followWord(v, comp, Vec{0, 1}) {
-				return false
+		for _, direction := range []Vec{Vec{1, 0}, Vec{0, 1}} {
+			if !comp.contains(v.add(direction.scale(-1))) {
+				isWord, wordSet := b.followWord(v, comp, direction)
+				if !isWord {
+					for elt := range wordSet {
+						invalid.insert(elt)
+					}
+					result = false
+				}
 			}
 		}
 	}
-	return true
+	// Find tiles which are both invalid and abandonable.
+	abandon := VecSet{}
+	for v:= range invalid {
+		if !b.partOfMultipleWords(v, comp) {
+			abandon.insert(v)
+		}
+	}
+	log.Println("Abandonable tiles:", abandon)
+	return result
 }
 
 func (b Board) scoreComponent(c VecSet) int {
