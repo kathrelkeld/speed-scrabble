@@ -140,8 +140,8 @@ func (b Board) followWord(v Vec, comp VecSet, d Vec) (bool, VecSet) {
 
 // Check whether given tile position is part of multiple words.
 func (b Board) partOfMultipleWords(v Vec, comp VecSet) bool {
-	return (comp.contains(v.add(Vec{-1,0})) || comp.contains(v.add(Vec{1,0}))) &&
-	       (comp.contains(v.add(Vec{0,-1})) || comp.contains(v.add(Vec{0,1})))
+	return (comp.contains(v.add(Vec{-1, 0})) || comp.contains(v.add(Vec{1, 0}))) &&
+		(comp.contains(v.add(Vec{0, -1})) || comp.contains(v.add(Vec{0, 1})))
 }
 
 // Verify that the given component list has valid words.
@@ -154,7 +154,7 @@ func (b Board) verifyWordsInComponent(comp VecSet) bool {
 	invalid := VecSet{}
 	// Check all tiles in the vert and horizontal directions.
 	for v := range comp {
-		for _, direction := range []Vec{Vec{1, 0}, Vec{0, 1}} {
+		for _, direction := range []Vec{{1, 0}, {0, 1}} {
 			if !comp.contains(v.add(direction.scale(-1))) {
 				isWord, wordSet := b.followWord(v, comp, direction)
 				if !isWord {
@@ -168,7 +168,7 @@ func (b Board) verifyWordsInComponent(comp VecSet) bool {
 	}
 	// Find tiles which are both invalid and abandonable.
 	abandon := VecSet{}
-	for v:= range invalid {
+	for v := range invalid {
 		if !b.partOfMultipleWords(v, comp) {
 			abandon.insert(v)
 		}
@@ -179,7 +179,7 @@ func (b Board) verifyWordsInComponent(comp VecSet) bool {
 
 func (b Board) scoreComponent(c VecSet) int {
 	score := 0
-	for v, _ := range c {
+	for v := range c {
 		score += pointValues[b.value(v)]
 	}
 	return score
@@ -239,6 +239,7 @@ func (b Board) scoreBoard(c *Client) Score {
 	}
 	comp := components[0]
 	// A valid board must contain all the tiles served and no more.
+	log.Println("Hello")
 	tilesServedCount := c.getTilesServedCount()
 	if len(comp) != tilesServedCount {
 		if len(comp) > tilesServedCount {
