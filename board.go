@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 )
@@ -48,6 +49,10 @@ func (v Vec) scale(c int) Vec {
 	return Vec{v.x * c, v.y * c}
 }
 
+func (v Vec) String() string {
+	return fmt.Sprintf("(%v, %v)", v.x, v.y)
+}
+
 type VecSet map[Vec]struct{}
 
 func (s VecSet) contains(elt Vec) bool {
@@ -64,6 +69,17 @@ func (a VecSet) union(b VecSet) {
 	for elt := range b {
 		a.insert(elt)
 	}
+}
+
+func (s VecSet) String() string {
+	if len(s) == 0 {
+		return ""
+	}
+	result := "["
+	for elt := range s {
+		result += fmt.Sprintf("%v, ", elt)
+	}
+	return result[:len(result)-2] + "]"
 }
 
 type Score struct {
@@ -128,7 +144,6 @@ func (s VecSet) findComponents() []VecSet {
 			}
 		}
 	}
-	log.Println("Found", len(result), "components")
 	return result
 }
 
@@ -147,24 +162,43 @@ func (b Board) followWord(v Vec, comp VecSet, d Vec) (bool, VecSet) {
 		word += b.value(next)
 		next = next.add(d)
 	}
-	log.Println("Found supposed word:", word)
 	return verifyWord(word), result
+}
+
+func (b Board) bruteForceScorableComponents(valid, invalid VecSet) []VecSet {
+	bestScore := 0
+	var bestChoice []VecSet
+	tempInvalid := make(VecSet)
+	for elt := range invalid {
+		log.Println("Removing", b.value(elt))
+		attempt := make(VecSet)
+		attempt.union(valid)
+		delete(attempt, elt)
+		attemptComps := b.findValidScorableComponents(attempt, tempInvalid)
+		attemptScore := b.scoreComponentList(attemptComps)
+		if attemptScore > bestScore {
+			bestScore = attemptScore
+			bestChoice = attemptComps
+		}
+	}
+	log.Println("Brute force result:", bestChoice)
+	return bestChoice
 }
 
 // Verify that the given component list has valid words.
 // Add tiles that are part of valid words to valid and invalid words to invalid.
 // These two sets may overlap.
-func (b Board) findValidScorableComponents(boardSet, invalid VecSet) []VecSet {
+func (b Board) findValidScorableComponents(boardSet, invalidAll VecSet) []VecSet {
 	components := boardSet.findComponents()
 	scorable := []VecSet{}
 	for _, comp := range components {
 		// Component must be 2 or more tiles.
 		if len(comp) <= 1 {
-			invalid.union(comp)
+			invalidAll.union(comp)
 			continue
 		}
 		valid := make(VecSet)
-		isAllValid := true
+		invalid := make(VecSet)
 		// Check all tiles in the vert and horizontal directions.
 		for v := range comp {
 			for _, direction := range []Vec{{1, 0}, {0, 1}} {
@@ -173,37 +207,46 @@ func (b Board) findValidScorableComponents(boardSet, invalid VecSet) []VecSet {
 					isWord, wordSet := b.followWord(v, comp, direction)
 					if !isWord {
 						invalid.union(wordSet)
-						isAllValid = false
 					} else {
 						valid.union(wordSet)
 					}
 				}
 			}
 		}
+		invalidAll.union(invalid)
 		if len(valid) == len(comp) {
-			if !isAllValid {
-				// If all tiles were valid but there were invalid words, stop.
-				//TODO: brute force the best solution here instead
+			if len(invalid) != 0 {
+				// If all tiles were valid but there were invalid words, brute force.
+				log.Println("Found unremovable tiles!")
+				bestChoice := b.bruteForceScorableComponents(valid, invalid)
+				scorable = append(scorable, bestChoice...)
 				continue
 			}
 			// If everything was good, keep this component.
 			scorable = append(scorable, valid)
 		} else {
 			// If some tiles were invalid, find the components in the valid subset.
-			subcomps := valid.findComponents()
+			subcomps := b.findValidScorableComponents(valid, invalidAll)
 			scorable = append(scorable, subcomps...)
 		}
 	}
 	return scorable
 }
 
-// Assuming that all the tiles are valid, find the score of this set.
-func (b Board) scoreComponent(c VecSet) int {
-	score := 0
-	for v := range c {
-		score += pointValues[b.value(v)]
+// Assuming that all the tiles are valid, find the max score in this list.
+func (b Board) scoreComponentList(cs []VecSet) int {
+	bestScore := 0
+	for _, comp := range cs {
+		newScore := 0
+		for v := range comp {
+			newScore += pointValues[b.value(v)]
+		}
+		if newScore > bestScore {
+			bestScore = newScore
+		}
+		log.Println("Found component with score", newScore)
 	}
-	return score
+	return bestScore
 }
 
 // Return false if set and game do not agree on tile values.
@@ -235,15 +278,9 @@ func (b Board) scoreBoard(c *Client) Score {
 	boardSet := b.createVecSetOfAllTiles()
 	invalid := make(VecSet)
 	components := b.findValidScorableComponents(boardSet, invalid)
-	score := 0
-	for _, comp := range components {
-		newScore := b.scoreComponent(comp)
-		if newScore > score {
-			score = newScore
-		}
-		log.Println("Found component with score", newScore)
-	}
-	result.Score -= score
+	bestScore := b.scoreComponentList(components)
+	result.Score -= bestScore
+	log.Println("Best score:", bestScore)
 	log.Println("Invalid tiles:", invalid)
 
 	// A valid board has a score of 0.
