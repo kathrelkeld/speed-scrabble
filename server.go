@@ -48,7 +48,9 @@ func handleVerifyTiles(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
-	sendJSON(board.scoreBoard(globalClient), w)
+	s := board.scoreBoard(globalClient)
+	log.Println("Board score:", s)
+	sendJSON(s, w)
 }
 
 func main() {

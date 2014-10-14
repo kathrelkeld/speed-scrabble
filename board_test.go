@@ -9,10 +9,6 @@ func testError(t *testing.T, got, expected interface{}, name string) {
 	t.Errorf("%s: Got %v; Expected %v", name, got, expected)
 }
 
-var aTile = Tile{Value: "A", Points: pointValues["A"]}
-var cTile = Tile{Value: "C", Points: pointValues["C"]}
-var tTile = Tile{Value: "T", Points: pointValues["T"]}
-
 func TestPrintBoard(t *testing.T) {
 	e := "AB\n C"
 	b := makeBoard(2, 2, "A", "B", "", "C")
@@ -40,12 +36,12 @@ var scoreTests = []struct {
 		Score{false, 4}, "MissingTilesButPassing"},
 	{makeBoard(3, 3, "C", "A", "T", "", "", "A", "", "", "N"),
 		[]string{"C", "A", "T", "T"}, Score{false, 6}, "MismatchedScore"},
-	{makeBoard(3, 3, "C", "A", "T", "", "", "S", "", "", ""),
+	{makeBoard(3, 3, "C", "A", "T", "", "S", "", "", "", ""),
 		[]string{"C", "A", "T", "T"}, Score{false, 6}, "MismatchedTilesButValid"},
 	{makeBoard(3, 3, "C", "A", "T", "", "", "A", "", "", "D"),
 		[]string{"C", "A", "T", "C"}, Score{false, 8}, "TooManyBoardTiles"},
 	{makeBoard(3, 3, "C", "A", "T", "", "E", "", "", "E", ""),
-		[]string{"C", "A", "T", "E", "E"}, Score{false, 7}, "MultiWordOneFails"},
+		[]string{"C", "A", "T", "E", "E"}, Score{false, 2}, "MultiWordOneFails"},
 	{makeBoard(3, 3, "C", "A", "T", "", "", "", "", "A", "T"),
 		[]string{"C", "A", "T", "A", "T"}, Score{false, 2}, "MultiComponentAllPass"},
 	{makeBoard(3, 3, "C", "C", "T", "", "", "", "", "A", "T"),

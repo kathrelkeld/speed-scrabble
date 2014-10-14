@@ -59,6 +59,13 @@ func (s VecSet) insert(elt Vec) {
 	s[elt] = struct{}{}
 }
 
+// Adds the elements of set b to the set a.
+func (a VecSet) union(b VecSet) {
+	for elt := range b {
+		a.insert(elt)
+	}
+}
+
 type Score struct {
 	Valid bool
 	Score int
@@ -82,36 +89,42 @@ func (b Board) value(v Vec) string {
 	return b[v.x][v.y]
 }
 
-// Find the tiles connected to the given tile.
-func (b Board) findConnectedTiles(v Vec, found VecSet) {
-	if !found.contains(v) &&
-		v.x < len(b) && v.y < len(b[0]) &&
-		v.x >= 0 && v.y >= 0 && b.value(v) != "" {
+// Create a VecSet containing all the tiles present on this board.
+func (b Board) createVecSetOfAllTiles() VecSet {
+	result := VecSet{}
+	for i := 0; i < len(b); i++ {
+		for j := 0; j < len(b[0]); j++ {
+			v := Vec{i, j}
+			if b.value(v) != "" {
+				result.insert(v)
+			}
+		}
+	}
+	return result
+}
+
+// Find the tiles connected to the given tile in this component.
+func (s VecSet) findConnectedTiles(v Vec, found VecSet) {
+	if !found.contains(v) && s.contains(v) {
 		found.insert(v)
-		b.findConnectedTiles(v.add(Vec{1, 0}), found)
-		b.findConnectedTiles(v.add(Vec{0, 1}), found)
-		b.findConnectedTiles(v.add(Vec{-1, 0}), found)
-		b.findConnectedTiles(v.add(Vec{0, -1}), found)
+		s.findConnectedTiles(v.add(Vec{1, 0}), found)
+		s.findConnectedTiles(v.add(Vec{0, 1}), found)
+		s.findConnectedTiles(v.add(Vec{-1, 0}), found)
+		s.findConnectedTiles(v.add(Vec{0, -1}), found)
 	}
 }
 
-// Find the connected components
-func (b Board) findComponents() []VecSet {
+// Find the connected components in this component.
+func (s VecSet) findComponents() []VecSet {
 	var result []VecSet
-	maxX := len(b)
-	maxY := len(b[0])
-	var i, j int
 	c := make(VecSet)
-	for i = 0; i < maxX; i++ {
-		for j = 0; j < maxY; j++ {
-			v := Vec{i, j}
-			if !c.contains(v) && b.value(v) != "" {
-				thisCompFound := make(VecSet)
-				b.findConnectedTiles(v, thisCompFound)
-				result = append(result, thisCompFound)
-				for elt := range thisCompFound {
-					c.insert(elt)
-				}
+	for v := range s {
+		if !c.contains(v) {
+			thisCompFound := make(VecSet)
+			s.findConnectedTiles(v, thisCompFound)
+			result = append(result, thisCompFound)
+			for elt := range thisCompFound {
+				c.insert(elt)
 			}
 		}
 	}
@@ -138,45 +151,53 @@ func (b Board) followWord(v Vec, comp VecSet, d Vec) (bool, VecSet) {
 	return verifyWord(word), result
 }
 
-// Check whether given tile position is part of multiple words.
-func (b Board) partOfMultipleWords(v Vec, comp VecSet) bool {
-	return (comp.contains(v.add(Vec{-1, 0})) || comp.contains(v.add(Vec{1, 0}))) &&
-		(comp.contains(v.add(Vec{0, -1})) || comp.contains(v.add(Vec{0, 1})))
-}
-
 // Verify that the given component list has valid words.
-func (b Board) verifyWordsInComponent(comp VecSet) bool {
-	// Component must be 2 or more tiles.
-	if len(comp) <= 1 {
-		return false
-	}
-	result := true
-	invalid := VecSet{}
-	// Check all tiles in the vert and horizontal directions.
-	for v := range comp {
-		for _, direction := range []Vec{{1, 0}, {0, 1}} {
-			if !comp.contains(v.add(direction.scale(-1))) {
-				isWord, wordSet := b.followWord(v, comp, direction)
-				if !isWord {
-					for elt := range wordSet {
-						invalid.insert(elt)
+// Add tiles that are part of valid words to valid and invalid words to invalid.
+// These two sets may overlap.
+func (b Board) findValidScorableComponents(boardSet, invalid VecSet) []VecSet {
+	components := boardSet.findComponents()
+	scorable := []VecSet{}
+	for _, comp := range components {
+		// Component must be 2 or more tiles.
+		if len(comp) <= 1 {
+			invalid.union(comp)
+			continue
+		}
+		valid := make(VecSet)
+		isAllValid := true
+		// Check all tiles in the vert and horizontal directions.
+		for v := range comp {
+			for _, direction := range []Vec{{1, 0}, {0, 1}} {
+				// Follow this word if it's at the start in this direction.
+				if !comp.contains(v.add(direction.scale(-1))) {
+					isWord, wordSet := b.followWord(v, comp, direction)
+					if !isWord {
+						invalid.union(wordSet)
+						isAllValid = false
+					} else {
+						valid.union(wordSet)
 					}
-					result = false
 				}
 			}
 		}
-	}
-	// Find tiles which are both invalid and abandonable.
-	abandon := VecSet{}
-	for v := range invalid {
-		if !b.partOfMultipleWords(v, comp) {
-			abandon.insert(v)
+		if len(valid) == len(comp) {
+			if !isAllValid {
+				// If all tiles were valid but there were invalid words, stop.
+				//TODO: brute force the best solution here instead
+				continue
+			}
+			// If everything was good, keep this component.
+			scorable = append(scorable, valid)
+		} else {
+			// If some tiles were invalid, find the components in the valid subset.
+			subcomps := valid.findComponents()
+			scorable = append(scorable, subcomps...)
 		}
 	}
-	log.Println("Abandonable tiles:", abandon)
-	return result
+	return scorable
 }
 
+// Assuming that all the tiles are valid, find the score of this set.
 func (b Board) scoreComponent(c VecSet) int {
 	score := 0
 	for v := range c {
@@ -205,25 +226,25 @@ func (b Board) compareTileValues(c *Client, s VecSet) bool {
 	return true
 }
 
-// Return true if this board is a valid soultion
+// Score this board
 func (b Board) scoreBoard(c *Client) Score {
 	maxScore := c.getMaxScore()
 	result := Score{Valid: false, Score: maxScore}
 
-	// Find all components on this board and score them.
-	components := b.findComponents()
+	// Find the hightest point value of all scorable components
+	boardSet := b.createVecSetOfAllTiles()
+	invalid := make(VecSet)
+	components := b.findValidScorableComponents(boardSet, invalid)
 	score := 0
 	for _, comp := range components {
-		// A valid component contains only valid words.
-		if b.verifyWordsInComponent(comp) {
-			newScore := b.scoreComponent(comp)
-			if newScore > score {
-				score = newScore
-			}
-			log.Println("Found component with score", newScore)
+		newScore := b.scoreComponent(comp)
+		if newScore > score {
+			score = newScore
 		}
+		log.Println("Found component with score", newScore)
 	}
 	result.Score -= score
+	log.Println("Invalid tiles:", invalid)
 
 	// A valid board has a score of 0.
 	if result.Score != 0 {
@@ -239,7 +260,6 @@ func (b Board) scoreBoard(c *Client) Score {
 	}
 	comp := components[0]
 	// A valid board must contain all the tiles served and no more.
-	log.Println("Hello")
 	tilesServedCount := c.getTilesServedCount()
 	if len(comp) != tilesServedCount {
 		if len(comp) > tilesServedCount {
@@ -259,6 +279,7 @@ func (b Board) scoreBoard(c *Client) Score {
 	return result
 }
 
+// Printable board.
 func (b Board) String() string {
 	result := ""
 	for i := 0; i < len(b); i++ {
