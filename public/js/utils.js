@@ -120,3 +120,27 @@ function sendAndGetJSON(data, page, handler) {
   xmlhttp.open("POST", page, true);
   xmlhttp.send(JSON.stringify(data));
 }
+
+function websocketCreate() {
+	var socket = new WebSocket("ws://localhost:8080/connect");
+	socket.onopen = function (e) {
+		websocketSendAndGet("start", "", null)
+	}
+	return socket
+}
+
+function websocketSendAndGet(type, data, handler) {
+	var message = {
+		type: type,
+		id: 1,
+		//TODO: don't hardcode this...
+		at: "2014-01-02T15:04:05Z",
+		data: data
+	};
+	socket.send(JSON.stringify(message));
+	socket.onmessage = handler
+}
+
+function websocketRequest(type, handler) {
+	websocketSendAndGet(type, "", handler)
+}

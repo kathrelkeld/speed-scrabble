@@ -75,7 +75,7 @@ GameManager.prototype.requestTiles = function() {
 
 // Send request for new letter and add it.
 GameManager.prototype.requestNewTile = function() {
-  getJSON("/add_tile", function(letter) {
+  websocketRequest("addTile", function(letter) {
     gamemanager.addNewLetters([letter]);
   });
 }
@@ -137,5 +137,6 @@ function setMessages(text) {
 
 window.requestAnimationFrame(function() {
   console.log("Starting Game!")
+	socket = websocketCreate()
   newGameManager()
 });

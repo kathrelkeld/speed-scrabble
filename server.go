@@ -2,12 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"time"
 )
 
 var globalGame = makeNewGame(1)
 var globalClient = makeNewClient(1)
+
+type Message struct {
+	Type     string
+	ClientId int
+	At       time.Time
+	Data     json.RawMessage
+}
 
 func sendJSON(v interface{}, w http.ResponseWriter) {
 	b, err := json.Marshal(v)
@@ -18,6 +27,35 @@ func sendJSON(v interface{}, w http.ResponseWriter) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
+}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func handleWebsocket(w http.ResponseWriter, req *http.Request) {
+	log.Println("Handling new client.")
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Println("error:", err)
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+	for {
+		_, p, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("error:", err)
+			return
+		}
+		var m Message
+		err = json.Unmarshal(p, &m)
+		if err != nil {
+			log.Println("error:", err)
+			return
+		}
+		log.Println("Got message:", m.Type)
+	}
 }
 
 func handleAddTile(w http.ResponseWriter, req *http.Request) {
@@ -35,7 +73,6 @@ func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 	globalClient.addToGame(globalGame)
 	tiles := globalClient.getInitialTiles()
 	log.Println("Sending Tiles:", tiles)
-	//sendJSONSlice(tiles, w)
 	sendJSON(tiles, w)
 }
 
@@ -63,6 +100,7 @@ func main() {
 	http.HandleFunc("/tiles", handleNewTiles)
 	http.HandleFunc("/add_tile", handleAddTile)
 	http.HandleFunc("/verify", handleVerifyTiles)
+	http.HandleFunc("/connect", handleWebsocket)
 
 	log.Println("Now listening on", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
