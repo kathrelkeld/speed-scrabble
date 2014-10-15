@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"encoding/json"
 	"log"
 	"os"
 )
@@ -37,20 +38,20 @@ func verifyWord(w string) bool {
 }
 
 type Vec struct {
-	x int
-	y int
+	X int
+	Y int
 }
 
 func (a Vec) add(b Vec) Vec {
-	return Vec{a.x + b.x, a.y + b.y}
+	return Vec{a.X + b.X, a.Y + b.Y}
 }
 
 func (v Vec) scale(c int) Vec {
-	return Vec{v.x * c, v.y * c}
+	return Vec{v.X * c, v.Y * c}
 }
 
 func (v Vec) String() string {
-	return fmt.Sprintf("(%v, %v)", v.x, v.y)
+	return fmt.Sprintf("(%v, %v)", v.X, v.Y)
 }
 
 type VecSet map[Vec]struct{}
@@ -62,6 +63,25 @@ func (s VecSet) contains(elt Vec) bool {
 
 func (s VecSet) insert(elt Vec) {
 	s[elt] = struct{}{}
+}
+
+func (s VecSet) MarshalJSON() ([]byte, error) {
+	var result []Vec
+	for elt := range s {
+		result = append(result, elt)
+	}
+	return json.Marshal(result)
+}
+
+func (s VecSet) UnmarshalJSON(b []byte) error {
+	var vecs []Vec
+	if err := json.Unmarshal(b, &vecs); err != nil {
+		return err
+	}
+	for _, elt := range vecs {
+		s.insert(elt)
+	}
+	return nil
 }
 
 // Adds the elements of set b to the set a.
@@ -83,26 +103,15 @@ func (s VecSet) String() string {
 }
 
 type Score struct {
-	Valid bool
-	Score int
+	Valid   bool
+	Score   int
+	Invalid VecSet
 }
 
 type Board [][]string
 
-func makeBoard(x, y int, letters ...string) Board {
-	b := Board{}
-	if len(letters) != x*y {
-		log.Println("Letters count did not match given dimensions!")
-		return b
-	}
-	for i := 0; i < x; i++ {
-		b = append(b, letters[i*y:(i+1)*y])
-	}
-	return b
-}
-
 func (b Board) value(v Vec) string {
-	return b[v.x][v.y]
+	return b[v.X][v.Y]
 }
 
 // Create a VecSet containing all the tiles present on this board.
@@ -249,7 +258,7 @@ func (b Board) scoreComponentList(cs []VecSet) int {
 	return bestScore
 }
 
-// Return false if set and game do not agree on tile values.
+// Return false if set and board have mismatched tile values.
 func (b Board) compareTileValues(c *Client, s VecSet) bool {
 	t := c.getAllTilesServed()
 	tileCount := make(map[string]int)
@@ -259,8 +268,9 @@ func (b Board) compareTileValues(c *Client, s VecSet) bool {
 	for key := range s {
 		tileCount[b.value(key)] -= 1
 	}
+	// Return false if an impossible value is found.
 	for _, count := range tileCount {
-		if count != 0 {
+		if count < 0 {
 			log.Println("Value difference counts:", tileCount)
 			return false
 		}
@@ -272,47 +282,42 @@ func (b Board) compareTileValues(c *Client, s VecSet) bool {
 // Score this board
 func (b Board) scoreBoard(c *Client) Score {
 	maxScore := c.getMaxScore()
-	result := Score{Valid: false, Score: maxScore}
+	result := Score{Valid: true, Score: maxScore, Invalid: make(VecSet)}
+	boardSet := b.createVecSetOfAllTiles()
 
 	// Find the hightest point value of all scorable components
-	boardSet := b.createVecSetOfAllTiles()
-	invalid := make(VecSet)
-	components := b.findValidScorableComponents(boardSet, invalid)
+	components := b.findValidScorableComponents(boardSet, result.Invalid)
 	bestScore := b.scoreComponentList(components)
 	result.Score -= bestScore
 	log.Println("Best score:", bestScore)
-	log.Println("Invalid tiles:", invalid)
+	log.Println("Invalid tiles:", result.Invalid)
 
 	// A valid board has a score of 0.
 	if result.Score != 0 {
+		result.Valid = false
 		if result.Score < 0 {
 			log.Println("Impossible score: cheating suspected!")
 			result.Score = maxScore
 		}
-		return result
 	}
-	// A valid board has only one component.
-	if len(components) != 1 {
-		return result
-	}
-	comp := components[0]
 	// A valid board must contain all the tiles served and no more.
 	tilesServedCount := c.getTilesServedCount()
-	if len(comp) != tilesServedCount {
-		if len(comp) > tilesServedCount {
+	if len(boardSet) != tilesServedCount {
+		result.Valid = false
+		if len(boardSet) > tilesServedCount {
 			log.Println("Impossible number of tiles: cheating suspected!")
 			result.Score = maxScore
+			return result
 		}
-		return result
 	}
 	// A valid board must contain exactly the tiles served.
-	if !b.compareTileValues(c, comp) {
+	if !b.compareTileValues(c, boardSet) {
 		log.Println("Impossibily mismatched tiles: cheating suspected!")
+		result.Valid = false
 		result.Score = maxScore
 		return result
 	}
 	// Return true if all other checks have passed.
-	result.Valid = true
 	return result
 }
 

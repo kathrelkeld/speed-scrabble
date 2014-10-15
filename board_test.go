@@ -2,8 +2,30 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"reflect"
 	"testing"
 )
+
+func makeTestBoard(x, y int, letters ...string) Board {
+	b := Board{}
+	if len(letters) != x*y {
+		log.Println("Letters count did not match given dimensions!")
+		return b
+	}
+	for i := 0; i < x; i++ {
+		b = append(b, letters[i*y:(i+1)*y])
+	}
+	return b
+}
+
+func makeTestVecSet(vs ...Vec) VecSet {
+	result := make(VecSet)
+	for _, v := range vs {
+		result.insert(v)
+	}
+	return result
+}
 
 func testError(t *testing.T, got, expected interface{}, name string) {
 	t.Errorf("%s: Got %v; Expected %v", name, got, expected)
@@ -11,41 +33,94 @@ func testError(t *testing.T, got, expected interface{}, name string) {
 
 func TestPrintBoard(t *testing.T) {
 	e := "AB\n C"
-	b := makeBoard(2, 2, "A", "B", "", "C")
+	b := makeTestBoard(2, 2, "A", "B", "", "C")
 	if g := b.String(); g != "AB\n C\n" {
 		testError(t, g, e, "PrintBoard")
 	}
 }
 
 var scoreTests = []struct {
-	b     Board
-	tiles []string
-	e     Score
 	name  string
+	board Board
+	tiles []string
+	score Score
 }{
-	{makeBoard(2, 2, "", "", "", ""), []string{"A", "C", "C"},
-		Score{false, 7}, "EmptyBoard"},
-	{makeBoard(3, 1, "C", "A", "T"), []string{"C", "A", "T"},
-		Score{true, 0}, "TallBoard"},
-	{makeBoard(1, 3, "C", "A", "T"), []string{"C", "A", "T"},
-		Score{true, 0}, "LongBoard"},
-	{makeBoard(3, 3, "C", "A", "T", "", "C", "", "", "T", ""),
-		[]string{"C", "A", "T", "C", "T"}, Score{true, 0}, "MutliWordPassing"},
-	{makeBoard(3, 3, "C", "A", "T", "", "C", "", "", "T", ""),
-		[]string{"C", "A", "T", "C", "T", "C", "A"},
-		Score{false, 4}, "MissingTilesButPassing"},
-	{makeBoard(3, 3, "C", "A", "T", "", "", "A", "", "", "N"),
-		[]string{"C", "A", "T", "T"}, Score{false, 6}, "MismatchedScore"},
-	{makeBoard(3, 3, "C", "A", "T", "", "S", "", "", "", ""),
-		[]string{"C", "A", "T", "T"}, Score{false, 6}, "MismatchedTilesButValid"},
-	{makeBoard(3, 3, "C", "A", "T", "", "", "A", "", "", "D"),
-		[]string{"C", "A", "T", "C"}, Score{false, 8}, "TooManyBoardTiles"},
-	{makeBoard(3, 3, "C", "A", "T", "", "E", "", "", "E", ""),
-		[]string{"C", "A", "T", "E", "E"}, Score{false, 2}, "MultiWordOneFails"},
-	{makeBoard(3, 3, "C", "A", "T", "", "", "", "", "A", "T"),
-		[]string{"C", "A", "T", "A", "T"}, Score{false, 2}, "MultiComponentAllPass"},
-	{makeBoard(3, 3, "C", "C", "T", "", "", "", "", "A", "T"),
-		[]string{"C", "A", "T", "C", "T"}, Score{false, 7}, "MultiComponentOneFails"},
+	{name: "Empty board",
+		board: makeTestBoard(2, 2, "", "", "", ""),
+		tiles: []string{"A", "C", "C"},
+		score: Score{false, 7, makeTestVecSet()}},
+	{name: "Tall board",
+		board: makeTestBoard(3, 1, "C", "A", "T"),
+		tiles: []string{"C", "A", "T"},
+		score: Score{true, 0, makeTestVecSet()}},
+	{name: "Long board",
+		board: makeTestBoard(1, 3, "C", "A", "T"),
+		tiles: []string{"C", "A", "T"},
+		score: Score{true, 0, makeTestVecSet()}},
+	{name: "One component, multi word, all used, all valid",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "C", "", "", "T", ""),
+		tiles: []string{"C", "A", "T", "C", "T"},
+		score: Score{true, 0, makeTestVecSet()}},
+	{name: "Missing tiles but otherwise passing",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "C", "", "", "T", ""),
+		tiles: []string{"C", "A", "T", "C", "T", "C", "A"},
+		score: Score{false, 4, makeTestVecSet()}},
+	{name: "One component, all of the words fail",
+		board: makeTestBoard(3, 3, "C", "A", "O", "", "E", "", "", "E", ""),
+		tiles: []string{"C", "A", "O", "E", "E"},
+		score: Score{false, 7,
+			makeTestVecSet(Vec{0, 0}, Vec{0, 1}, Vec{0, 2}, Vec{1, 1}, Vec{2, 1})}},
+	{name: "One component, one of the words fails but falls off cleanly",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "E", "", "", "E", ""),
+		tiles: []string{"C", "A", "T", "E", "E"},
+		score: Score{false, 2, makeTestVecSet(Vec{0, 1}, Vec{1, 1}, Vec{2, 1})}},
+	{name: "One component, failing word divides it into two components",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "E", "", "M", "E", ""),
+		tiles: []string{"C", "A", "T", "E", "E", "M"},
+		score: Score{false, 5, makeTestVecSet(Vec{0, 1}, Vec{1, 1}, Vec{2, 1})}},
+	{name: "Unremovable tiles (one set)",
+		board: makeTestBoard(3, 3, "Q", "I", "", "A", "S", "", "", "", ""),
+		tiles: []string{"Q", "I", "A", "S"},
+		score: Score{false, 1, makeTestVecSet(Vec{0, 0}, Vec{1, 0})}},
+	{name: "Unremovable tiles (multiple sets)",
+		board: makeTestBoard(3, 3, "A", "P", "T", "F", "A", "N", "", "", ""),
+		tiles: []string{"A", "P", "T", "F", "A", "N"},
+		score: Score{false, 2,
+			makeTestVecSet(Vec{0, 0}, Vec{1, 0}, Vec{0, 2}, Vec{1, 2})}},
+	{name: "Multi component, all pass",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "", "", "", "A", "T"),
+		tiles: []string{"C", "A", "T", "A", "T"},
+		score: Score{false, 2, makeTestVecSet()}},
+	{name: "Multi component, one invalid",
+		board: makeTestBoard(3, 3, "C", "C", "T", "", "", "", "", "A", "T"),
+		tiles: []string{"C", "C", "T", "A", "T"},
+		score: Score{false, 7, makeTestVecSet(Vec{0, 0}, Vec{0, 1}, Vec{0, 2})}},
+	{name: "Multi component, one invalid",
+		board: makeTestBoard(3, 3, "C", "C", "T", "", "", "", "", "A", "T"),
+		tiles: []string{"C", "C", "T", "A", "T"},
+		score: Score{false, 7, makeTestVecSet(Vec{0, 0}, Vec{0, 1}, Vec{0, 2})}},
+	{name: "Multi component, one partially invalid",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "", "S", "A", "T", ""),
+		tiles: []string{"C", "A", "T", "S", "A", "T"},
+		score: Score{false, 3, makeTestVecSet(Vec{0, 2}, Vec{1, 2})}},
+	{name: "Too many board tiles, passing tiles",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "", "O", "", "", "O"),
+		tiles: []string{"C", "A", "T"},
+		score: Score{false, 5, makeTestVecSet()}},
+	{name: "Too many board tiles, failing tiles",
+		board: makeTestBoard(3, 3, "C", "A", "S", "", "", "O", "", "", "O"),
+		tiles: []string{"C", "A", "O"},
+		score: Score{false, 5,
+			makeTestVecSet(Vec{0, 0}, Vec{0, 1}, Vec{0, 2}, Vec{1, 2}, Vec{2, 2})}},
+	{name: "Mismatched tile values, passing tiles",
+		board: makeTestBoard(3, 3, "C", "A", "T", "", "", "O", "", "", "O"),
+		tiles: []string{"C", "A", "T", "A", "A"},
+		score: Score{false, 7, makeTestVecSet()}},
+	{name: "Mismatched tile values, failing tiles",
+		board: makeTestBoard(3, 3, "C", "A", "S", "", "", "O", "", "", "O"),
+		tiles: []string{"C", "A", "T", "A", "A"},
+		score: Score{false, 7,
+			makeTestVecSet(Vec{0, 0}, Vec{0, 1}, Vec{0, 2}, Vec{1, 2}, Vec{2, 2})}},
 }
 
 func TestVariousBoardScores(t *testing.T) {
@@ -60,8 +135,9 @@ func TestVariousBoardScores(t *testing.T) {
 		var testGame = &Game{tiles: tiles}
 		var testClient = &Client{maxScore: maxScore, tilesServed: len(tiles),
 			game: testGame}
-		if g := input.b.scoreBoard(testClient); g != input.e {
-			testError(t, g, input.e, "Score of "+input.name)
+		s := input.board.scoreBoard(testClient)
+		if !reflect.DeepEqual(s, input.score) {
+			testError(t, s, input.score, input.name)
 		}
 	}
 }

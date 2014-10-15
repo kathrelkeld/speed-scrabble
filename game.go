@@ -121,6 +121,10 @@ type Tile struct {
 	Points int
 }
 
+func (t Tile) String() string {
+	return t.Value
+}
+
 type Tiles []Tile
 
 func newTiles() Tiles {
