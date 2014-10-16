@@ -121,10 +121,11 @@ function sendAndGetJSON(data, page, handler) {
   xmlhttp.send(JSON.stringify(data));
 }
 
-function websocketCreate() {
+function websocketCreate(handler) {
 	var socket = new WebSocket("ws://localhost:8080/connect");
 	socket.onopen = function (e) {
-		websocketSendAndGet("start", "", null)
+		websocketSendAndGet("new", "Hello", null);
+		handler();
 	}
 	return socket
 }
@@ -138,7 +139,10 @@ function websocketSendAndGet(type, data, handler) {
 		data: data
 	};
 	socket.send(JSON.stringify(message));
-	socket.onmessage = handler
+	socket.onmessage = function(e) {
+		var response = JSON.parse(e.data);
+		handler(response["Data"]);
+	}
 }
 
 function websocketRequest(type, handler) {

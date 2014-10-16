@@ -15,7 +15,7 @@ type Message struct {
 	Type     string
 	ClientId int
 	At       time.Time
-	Data     json.RawMessage
+	Data     *json.RawMessage
 }
 
 func sendJSON(v interface{}, w http.ResponseWriter) {
@@ -34,38 +34,87 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+func (c *Client) readMessage() (Message, error) {
+	var m Message
+	_, p, err := c.conn.ReadMessage()
+	if err != nil {
+		log.Println("error:", err)
+		return m, err
+	}
+	err = json.Unmarshal(p, &m)
+	if err != nil {
+		log.Println("error:", err)
+		return m, err
+	}
+	return m, nil
+}
+
+func (c *Client) sendMessage(t string, d interface{}) error {
+	marshaledData, err := json.Marshal(d)
+	if err != nil {
+		log.Println("error:", err)
+		return err
+	}
+	raw := json.RawMessage(marshaledData)
+	m := Message{Type: t, ClientId: c.id, At: time.Now(), Data: &raw}
+	j, err := json.Marshal(m)
+	if err != nil {
+		log.Println("error:", err)
+		return err
+	}
+	err = c.conn.WriteMessage(websocket.TextMessage, j)
+	if err != nil {
+		log.Println("error:", err)
+		return err
+	}
+	return nil
+}
+
+func (c *Client) runClient() {
+	for {
+		m, err := c.readMessage()
+		if err != nil {
+			return
+		}
+		switch {
+		case m.Type == "addTile":
+			tile := c.getNextTile()
+			if tile.Value == "" {
+				//TODO: send out of tiles error
+				return
+			}
+			c.sendMessage("tile", tile)
+		case m.Type == "verify":
+			var board Board
+			err := json.Unmarshal([]byte(*m.Data), &board)
+			if err != nil {
+				log.Println("error:", err)
+				return
+			}
+			s := board.scoreBoard(globalClient)
+			c.sendMessage("score", s)
+		}
+	}
+}
+
 func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 	log.Println("Handling new client.")
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		log.Println("error:", err)
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
 		return
 	}
-	for {
-		_, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Println("error:", err)
-			return
-		}
-		var m Message
-		err = json.Unmarshal(p, &m)
-		if err != nil {
-			log.Println("error:", err)
-			return
-		}
-		log.Println("Got message:", m.Type)
-	}
-}
-
-func handleAddTile(w http.ResponseWriter, req *http.Request) {
-	tile := globalClient.getNextTile()
-	if tile.Value == "" {
-		http.Error(w, "No more tiles!", http.StatusBadRequest)
+	c := globalClient
+	c.conn = conn
+	m, err := c.readMessage()
+	if err != nil {
 		return
 	}
-	log.Println("Sending Tile:", tile)
-	sendJSON(tile, w)
+	if m.Type != "new" {
+		log.Println("Incorrect type for new connection!")
+		return
+	}
+	go c.runClient()
 }
 
 func handleNewTiles(w http.ResponseWriter, req *http.Request) {
@@ -76,20 +125,6 @@ func handleNewTiles(w http.ResponseWriter, req *http.Request) {
 	sendJSON(tiles, w)
 }
 
-func handleVerifyTiles(w http.ResponseWriter, req *http.Request) {
-	var board Board
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&board)
-	if err != nil {
-		log.Println("error:", err)
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
-		return
-	}
-	s := board.scoreBoard(globalClient)
-	log.Println("Board score:", s)
-	sendJSON(s, w)
-}
-
 func main() {
 	const addr = "localhost:8080"
 	fileserver := http.FileServer(http.Dir("public"))
@@ -98,8 +133,6 @@ func main() {
 	http.Handle("/", redirect)
 	http.Handle("/public/", http.StripPrefix("/public/", fileserver))
 	http.HandleFunc("/tiles", handleNewTiles)
-	http.HandleFunc("/add_tile", handleAddTile)
-	http.HandleFunc("/verify", handleVerifyTiles)
 	http.HandleFunc("/connect", handleWebsocket)
 
 	log.Println("Now listening on", addr)

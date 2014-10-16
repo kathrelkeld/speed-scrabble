@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gorilla/websocket"
 	"log"
 	"math/rand"
 	"sync"
@@ -38,6 +39,7 @@ func makeNewGame(id int) *Game {
 
 type Client struct {
 	id          int
+	conn        *websocket.Conn
 	game        *Game
 	tilesServed int
 	maxScore    int

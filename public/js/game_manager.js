@@ -102,7 +102,8 @@ GameManager.prototype.verifyTiles = function() {
       }
     }
   }
-  sendAndGetJSON(tileValues, "/verify", function(result) {
+  //websocketSendAndGet("verify", tileValues, function(result) {
+  websocketSendAndGet("verify", tileValues, function(result) {
     if (result["Valid"]) {
       setMessages("You win!");
     } else {
@@ -137,6 +138,5 @@ function setMessages(text) {
 
 window.requestAnimationFrame(function() {
   console.log("Starting Game!")
-	socket = websocketCreate()
-  newGameManager()
+	socket = websocketCreate(newGameManager);
 });
