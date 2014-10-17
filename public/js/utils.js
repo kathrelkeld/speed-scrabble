@@ -124,13 +124,14 @@ function sendAndGetJSON(data, page, handler) {
 function websocketCreate(handler) {
 	var socket = new WebSocket("ws://localhost:8080/connect");
 	socket.onopen = function (e) {
-		websocketSendAndGet("new", "Hello", null);
-		handler();
+		websocketSendAndGet("newClient", null, null);
+		handler()
 	}
 	return socket
 }
 
 function websocketSendAndGet(type, data, handler) {
+	console.log("Sending:", type);
 	var message = {
 		type: type,
 		id: 1,
@@ -141,7 +142,10 @@ function websocketSendAndGet(type, data, handler) {
 	socket.send(JSON.stringify(message));
 	socket.onmessage = function(e) {
 		var response = JSON.parse(e.data);
-		handler(response["Data"]);
+		if (handler != null) {
+			handler(response["Data"]);
+		}
+		console.log("Receiving:", response['Type']);
 	}
 }
 

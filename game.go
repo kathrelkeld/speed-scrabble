@@ -17,30 +17,32 @@ type Game struct {
 	id      int
 	state   int
 	tiles   Tiles
-	players ClientSet
+	addPlayerChan chan *Client
 	mu      sync.Mutex
-}
-
-func (g *Game) isRunning() bool {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.state == RUNNING
 }
 
 func makeNewGame(id int) *Game {
 	g := Game{}
-	g.id = id
+	g.id = id // does not change
 	g.tiles = newTiles()
 	g.state = READY
-	g.players = make(ClientSet)
+	g.addPlayerChan = make(chan *Client)
 	g.mu = sync.Mutex{}
 	return &g
+}
+
+func (g *Game) newTiles() {
+	log.Println("Making new tiles!")
+	g.mu.Lock()
+	g.tiles = newTiles()
+	g.mu.Unlock()
 }
 
 type Client struct {
 	id          int
 	conn        *websocket.Conn
 	game        *Game
+	gameChan    chan MessageType
 	tilesServed int
 	maxScore    int
 	mu          sync.Mutex
@@ -48,8 +50,9 @@ type Client struct {
 
 func makeNewClient(id int) *Client {
 	c := Client{}
-	c.id = id
+	c.id = id // does not change
 	c.game = globalGame
+	c.gameChan = make(chan MessageType)
 	c.mu = sync.Mutex{}
 	return &c
 }
@@ -59,7 +62,6 @@ func (c *Client) addToGame(g *Game) {
 	c.game = g
 	c.mu.Unlock()
 	g.mu.Lock()
-	g.players.insert(c)
 	g.mu.Unlock()
 }
 
@@ -107,15 +109,10 @@ func (c *Client) getMaxScore() int {
 	return c.maxScore
 }
 
-type ClientSet map[*Client]struct{}
-
-func (s ClientSet) contains(elt *Client) bool {
-	_, ok := s[elt]
-	return ok
-}
-
-func (s ClientSet) insert(elt *Client) {
-	s[elt] = struct{}{}
+func (c *Client) getGameChan() chan MessageType {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.gameChan
 }
 
 type Tile struct {

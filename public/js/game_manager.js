@@ -15,7 +15,7 @@ GameManager.prototype.setup = function() {
   resizeDiv(this.borderDiv, vec(1, this.cellSize/2));
   this.grid = new Grid(this, vec(this.size, this.size));
   this.addButtonHandlers(this);
-  this.requestTiles();
+  //this.requestTiles();
 
   // Create ghost tile and hide it.
   this.ghostTile = new Tile("", this, this.tray);
@@ -23,8 +23,7 @@ GameManager.prototype.setup = function() {
   this.ghostTile.div = createDiv("ghost", this.div);
   resizeDiv(this.ghostTile.div, vec(this.cellSize, this.cellSize));
   this.ghostTile.div.classList.add('hidden');
-
-  // Add arrow key listener.
+	console.log("Finished setting up game!")
 }
 
 // Add a list of tiles.
@@ -68,8 +67,10 @@ GameManager.prototype.moveTileToTray = function(tile) {
 
 // Send request for new Letters and add them.
 GameManager.prototype.requestTiles = function() {
-  getJSON("/tiles", function(letters) {
-    gamemanager.addNewLetters(letters);
+	console.log("Requesting new tiles!");
+  websocketRequest("newTiles", function(letters) {
+		gamemanager.addNewLetters(letters);
+		setMessages("Game has started!");
   });
 }
 
@@ -82,11 +83,15 @@ GameManager.prototype.requestNewTile = function() {
 
 // Remove all tiles and start a new game.
 GameManager.prototype.reload = function() {
-  console.log("Reloading game board!");
   this.grid.removeAllTiles();
   this.tray.removeAllTiles();
-  this.requestTiles()
-  setMessages("Game has started!");
+	gamemanager.requestTiles();
+}
+
+// Join a game.
+GameManager.prototype.joinGame = function() {
+	console.log("Join game!");
+  websocketRequest("joinGame", function() {});
 }
 
 // Send gameboard for verification.
@@ -123,13 +128,16 @@ GameManager.prototype.addButtonHandlers = function() {
   document.getElementById("reload").onclick = function() {
     gamemanager.reload();
   };
+  document.getElementById("joinGame").onclick = function() {
+    gamemanager.joinGame();
+  };
   document.getElementById("verify").onclick = function() {
     gamemanager.verifyTiles();
   };
 }
 
 function newGameManager() {
-  new GameManager(12, 12);
+  gamemanager = new GameManager(12, 12);
 }
 
 function setMessages(text) {
