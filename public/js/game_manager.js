@@ -69,6 +69,7 @@ GameManager.prototype.moveTileToTray = function(tile) {
 GameManager.prototype.requestTiles = function() {
 	console.log("Requesting new tiles!");
   websocketRequest("newTiles", function(letters) {
+		console.log("Got tiles:", letters)
 		gamemanager.addNewLetters(letters);
 		setMessages("Game has started!");
   });

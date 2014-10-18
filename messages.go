@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -40,7 +39,6 @@ var MessageTypeToString = map[MessageType]string{
 func (mt *MessageType) MarshalJSON() ([]byte, error) {
 	s := MessageTypeToString[*mt]
 	if s == "" {
-		log.Println("No such message string to marshal!")
 		panic("No such message string to marshal!")
 	}
 	return json.Marshal(s)
@@ -58,7 +56,6 @@ func (mt *MessageType) UnmarshalJSON(b []byte) error {
 			return nil
 		}
 	}
-	log.Println("No such message string to unmarshal!")
 	panic("No such message string to unmarshal!")
 }
 
@@ -87,7 +84,14 @@ type FromGameMsg struct {
 	gInfo GameInfo
 }
 
+type ReqTileMsg struct {
+	typ   MessageType
+	index int
+	cInfo ClientInfo
+}
+
 type NewTileMsg struct {
-	typ MessageType
-	t   Tile
+	typ   MessageType
+	tiles Tiles
+	gInfo GameInfo
 }

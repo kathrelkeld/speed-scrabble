@@ -29,74 +29,50 @@ func (g *Game) newTiles() {
 }
 
 type Client struct {
-	conn             *websocket.Conn
-	tilesServedCount int
-	tilesServed      Tiles
-	maxScore         int
-	toGameChan       chan FromClientMsg
-	info             ClientInfo
+	conn        *websocket.Conn
+	tilesServed Tiles
+	maxScore    int
+	toGameChan  chan FromClientMsg
+	info        ClientInfo
 }
 
 type ClientInfo struct {
-	toClientChan   chan FromGameMsg
-	newTileChan    chan NewTileMsg
-	assignGameChan chan GameInfo
+	tilesServedCount int
+	toClientChan     chan FromGameMsg
+	newTilesChan     chan NewTileMsg
+	assignGameChan   chan GameInfo
 }
 
 func makeNewClient() *Client {
 	c := Client{}
 	c.info = ClientInfo{}
 	c.info.toClientChan = make(chan FromGameMsg)
-	c.info.newTileChan = make(chan NewTileMsg)
+	c.info.newTilesChan = make(chan NewTileMsg)
 	c.info.assignGameChan = make(chan GameInfo)
-	c.newGame()
 	return &c
 }
 
-func (c *Client) newGame() {
-	c.tilesServedCount = 0
-	c.tilesServed = Tiles{}
+func (c *Client) newTiles(t []Tile) {
+	c.info.tilesServedCount = len(t)
+	c.tilesServed = t
 	c.maxScore = 0
+	for _, elt := range t {
+		c.maxScore += elt.Points
+	}
 }
 
 func (c *Client) addTile(t Tile) {
 	c.tilesServed = append(c.tilesServed, t)
-	c.tilesServedCount += 1
+	c.info.tilesServedCount += 1
 	c.maxScore += t.Points
 }
 
-//func (c *Client) getInitialTiles() Tiles {
-//tiles := c.game.tiles[:12]
-//score := 0
-//for _, elt := range tiles {
-//score += elt.Points
-//}
-//c.mu.Lock()
-//c.tilesServed = 12
-//c.maxScore = score
-//c.mu.Unlock()
-//return tiles
-//}
-
-//func (c *Client) getNextTile() Tile {
-//if c.tilesServed == len(c.game.tiles) {
-//log.Println("No tiles remaining to send!")
-//return Tile{Value: "", Points: 0}
-//}
-//c.mu.Lock()
-//tile := c.game.tiles[c.tilesServed]
-//c.tilesServed += 1
-//c.maxScore += tile.Points
-//c.mu.Unlock()
-//return tile
-//}
-
 func (c *Client) getTilesServedCount() int {
-	return c.tilesServedCount
+	return c.info.tilesServedCount
 }
 
 func (c *Client) getAllTilesServed() Tiles {
-	return c.tilesServed[:c.tilesServedCount]
+	return c.tilesServed[:c.info.tilesServedCount]
 }
 
 func (c *Client) getMaxScore() int {

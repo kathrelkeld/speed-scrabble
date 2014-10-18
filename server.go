@@ -80,18 +80,20 @@ func (c *Client) runClient(socketChan chan SocketMsg) {
 				c.sendSocketMsg(MsgOK, nil)
 			case MsgNewTiles:
 				c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
-				_ = <-c.info.toClientChan
-				//TODO: fix new tiles
-				//tiles := c.getInitialTiles()
-				//log.Println("Sending tiles:", tiles)
-				//c.sendSocketMsg("tiles", tiles)
+				//TODO: check for error
+				tileMsg := <-c.info.newTilesChan
+				tiles := tileMsg.tiles
+				log.Println("Sending tiles:", tiles)
+				c.sendSocketMsg(MsgNewTiles, tiles)
+				c.newTiles(tiles)
 			case MsgAddTile:
-				//tile := c.getNextTile()
-				//if tile.Value == "" {
+				c.toGameChan <- FromClientMsg{MsgAddTile, c.info}
+				tileMsg := <-c.info.newTilesChan
+				tile := tileMsg.tiles[0]
 				// TODO: send out of tiles error
-				//return
-				//}
-				//c.sendSocketMsg("tile", tile)
+				log.Println("Sending tile:", tile)
+				c.sendSocketMsg(MsgAddTile, tile)
+				c.addTile(tile)
 			case MsgVerify:
 				var board Board
 				err := json.Unmarshal([]byte(*m.Data), &board)
@@ -172,8 +174,14 @@ func (g *Game) runGame() {
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {
 			case MsgNewTiles:
+				//TODO: handle confirm from all games
 				g.newTiles()
-				cm.cInfo.toClientChan <- FromGameMsg{MsgOK, g.info}
+				m := NewTileMsg{MsgOK, g.tiles[:12], g.info}
+				cm.cInfo.newTilesChan <- m
+			case MsgAddTile:
+				m := NewTileMsg{MsgOK, []Tile{g.tiles[cm.cInfo.tilesServedCount]},
+					g.info}
+				cm.cInfo.newTilesChan <- m
 			case MsgExit:
 				delete(clientChans, cm.cInfo.toClientChan)
 				log.Println("runGame: Removing client from game")
