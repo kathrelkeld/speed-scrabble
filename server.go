@@ -162,13 +162,36 @@ func receiveClientMessages(gameChan chan ClientMessage,
 	}
 }
 
+func (g *Game) allClientsTrue() bool {
+	result := true
+	for _, value := range g.clientChans {
+		result = result && value
+	}
+	return result
+}
+
+func (g *Game) sendToAllClients(t MessageType) {
+	for key := range g.clientChans {
+		key <-FromGameMsg{t, g.info}
+	}
+}
+
+func (g *Game) hearFromAllClients() {
+	for key := range g.clientChans {
+		g.clientChans[key] = false
+	}
+	for !g.allClientsTrue() {
+		cm := <-g.info.toGameChan
+		g.clientChans[cm.cInfo.toClientChan] = true
+	}
+}
+
 func (g *Game) runGame() {
-	clientChans := make(map[chan FromGameMsg]bool)
 	for {
 		select {
 		case clientInfo := <-g.info.addPlayerChan:
 			log.Println("runGame: Adding client to game")
-			clientChans[clientInfo.toClientChan] = false
+			g.clientChans[clientInfo.toClientChan] = false
 			//client.gameChan <- MessageType("ok")
 		case cm := <-g.info.toGameChan:
 			log.Println("Game got client message of type:", cm.typ)
@@ -183,7 +206,7 @@ func (g *Game) runGame() {
 					g.info}
 				cm.cInfo.newTilesChan <- m
 			case MsgExit:
-				delete(clientChans, cm.cInfo.toClientChan)
+				delete(g.clientChans, cm.cInfo.toClientChan)
 				log.Println("runGame: Removing client from game")
 			}
 		}
