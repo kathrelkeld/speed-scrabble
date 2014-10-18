@@ -8,23 +8,36 @@ import (
 	"time"
 )
 
-var globalGame = makeNewGame(1)
-var globalClient = makeNewClient(1)
+var globalGame = makeNewGame()
+var globalClient = makeNewClient()
 var newGameChan = make(chan GameRequest)
-
-type GameRequest struct {
-	Type MessageType
-	Client *Client
-	Chan chan *Game
-}
 
 type MessageType string
 
-type WsMessage struct {
+type GameRequest struct {
+	Type MessageType
+	cInfo ClientInfo
+}
+
+type SocketMsg struct {
 	Type     string
-	ClientId int
 	At       time.Time
 	Data     *json.RawMessage
+}
+
+type FromClientMsg struct {
+	typ MessageType
+	cInfo   ClientInfo
+}
+
+type FromGameMsg struct {
+	typ MessageType
+	gInfo   GameInfo
+}
+
+type NewTileMsg struct {
+	typ MessageType
+	t   Tile
 }
 
 func sendJSON(v interface{}, w http.ResponseWriter) {
@@ -43,8 +56,8 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func (c *Client) readWsMessage() (WsMessage, error) {
-	var m WsMessage
+func (c *Client) readSocketMsg() (SocketMsg, error) {
+	var m SocketMsg
 	_, p, err := c.conn.ReadMessage()
 	if err != nil {
 		log.Println("error:", err)
@@ -59,14 +72,14 @@ func (c *Client) readWsMessage() (WsMessage, error) {
 	return m, nil
 }
 
-func (c *Client) sendWsMessage(t string, d interface{}) error {
+func (c *Client) sendSocketMsg(t string, d interface{}) error {
 	marshaledData, err := json.Marshal(d)
 	if err != nil {
 		log.Println("error:", err)
 		return err
 	}
 	raw := json.RawMessage(marshaledData)
-	m := WsMessage{Type: t, ClientId: c.id, At: time.Now(), Data: &raw}
+	m := SocketMsg{Type: t, At: time.Now(), Data: &raw}
 	j, err := json.Marshal(m)
 	if err != nil {
 		log.Println("error:", err)
@@ -81,42 +94,43 @@ func (c *Client) sendWsMessage(t string, d interface{}) error {
 	return nil
 }
 
-func (c *Client) readWsMessages(ch chan WsMessage) {
+func (c *Client) readSocketMsgs(ch chan SocketMsg) {
 	for {
-		m, err := c.readWsMessage()
+		m, err := c.readSocketMsg()
 		if err != nil {
-			ch <- WsMessage{Type: "exit"}
+			ch <- SocketMsg{Type: "exit"}
 			return
 		}
 		ch <- m
 	}
 }
 
-func (c *Client) runClient(socketChan chan WsMessage) {
-	defer func(){c.gameChan <- MessageType("exit")}()
-	responseChan := make(chan *Game)
-	c.sendWsMessage("ok", nil)
+func (c *Client) runClient(socketChan chan SocketMsg) {
+	defer func(){c.toGameChan <- FromClientMsg{MessageType("exit"), c.info}}()
+	c.sendSocketMsg("ok", nil)
 	for {
 		select {
 		case m := <- socketChan:
 			switch m.Type {
 			case "joinGame":
-				newGameChan <- GameRequest{"global", c, responseChan}
-				c.game = <- responseChan
-				c.sendWsMessage("ok", nil)
+				newGameChan <- GameRequest{"global", c.info}
+				gameInfo := <- c.info.assignGameChan
+				c.toGameChan = gameInfo.toGameChan
+				c.sendSocketMsg("ok", nil)
 			case "newTiles":
-				c.gameChan <- MessageType("newTiles")
-				_ = <- c.gameChan
-				tiles := c.getInitialTiles()
-				log.Println("Sending tiles:", tiles)
-				c.sendWsMessage("tiles", tiles)
+				c.toGameChan <- FromClientMsg{MessageType("newTiles"), c.info}
+				_ = <- c.info.toClientChan
+				//TODO: fix new tiles
+				//tiles := c.getInitialTiles()
+				//log.Println("Sending tiles:", tiles)
+				//c.sendSocketMsg("tiles", tiles)
 			case "addTile":
-				tile := c.getNextTile()
-				if tile.Value == "" {
-					//TODO: send out of tiles error
-					return
-				}
-				c.sendWsMessage("tile", tile)
+				//tile := c.getNextTile()
+				//if tile.Value == "" {
+				// TODO: send out of tiles error
+					//return
+				//}
+				//c.sendSocketMsg("tile", tile)
 			case "verify":
 				var board Board
 				err := json.Unmarshal([]byte(*m.Data), &board)
@@ -125,11 +139,11 @@ func (c *Client) runClient(socketChan chan WsMessage) {
 					return
 				}
 				s := board.scoreBoard(globalClient)
-				c.sendWsMessage("score", s)
+				c.sendSocketMsg("score", s)
 			case "exit":
 				return
 			}
-		case gm := <- c.gameChan:
+		case gm := <- c.info.toClientChan:
 			log.Println("Game told client:", gm)
 		}
 	}
@@ -144,7 +158,7 @@ func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 	}
 	c := globalClient
 	c.conn = conn
-	m, err := c.readWsMessage()
+	m, err := c.readSocketMsg()
 	if err != nil {
 		return
 	}
@@ -152,17 +166,17 @@ func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 		log.Println("Incorrect type for new connection!")
 		return
 	}
-	socketChan := make(chan WsMessage)
+	socketChan := make(chan SocketMsg)
 	go c.runClient(socketChan)
-	go c.readWsMessages(socketChan)
+	go c.readSocketMsgs(socketChan)
 }
 
 func addPlayerToAGame() {
 	for {
 		r := <- newGameChan
 		log.Println("newGameChan: Adding client to game")
-		globalGame.addPlayerChan <- r.Client
-		r.Chan <- globalGame
+		globalGame.info.addPlayerChan <- r.cInfo
+		r.cInfo.assignGameChan <- globalGame.info
 	}
 }
 
@@ -186,25 +200,21 @@ func receiveClientMessages(gameChan chan ClientMessage,
 }
 
 func (g *Game) runGame() {
-	clientChans := make(map[chan MessageType]chan MessageType)
-	clientMessageChan := make(chan ClientMessage)
+	clientChans := make(map[chan FromGameMsg]bool)
 	for {
 		select {
-		case client := <- g.addPlayerChan:
+		case clientInfo := <- g.info.addPlayerChan:
 			log.Println("runGame: Adding client to game")
-			endChan := make(chan MessageType)
-			clientChans[client.gameChan] = endChan
-			go receiveClientMessages(clientMessageChan, client.gameChan, endChan)
+			clientChans[clientInfo.toClientChan] = false
 			//client.gameChan <- MessageType("ok")
-		case cm := <- clientMessageChan:
+		case cm := <- g.info.toGameChan:
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {
 			case "newTiles":
 				g.newTiles()
-				cm.clientChan <- MessageType("ok")
+				cm.cInfo.toClientChan <- FromGameMsg{MessageType("ok"), g.info}
 			case "exit":
-				clientChans[cm.clientChan] <- MessageType("end")
-				delete(clientChans, cm.clientChan)
+				delete(clientChans, cm.cInfo.toClientChan)
 				log.Println("runGame: Removing client from game")
 			}
 		}

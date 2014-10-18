@@ -2,117 +2,105 @@ package main
 
 import (
 	"github.com/gorilla/websocket"
-	"log"
 	"math/rand"
-	"sync"
-)
-
-const (
-	READY = iota
-	RUNNING
-	ENDED
 )
 
 type Game struct {
-	id      int
-	state   int
-	tiles   Tiles
-	addPlayerChan chan *Client
-	mu      sync.Mutex
+	tiles Tiles
+	info  GameInfo
 }
 
-func makeNewGame(id int) *Game {
+type GameInfo struct {
+	addPlayerChan chan ClientInfo
+	toGameChan chan FromClientMsg
+}
+
+func makeNewGame() *Game {
 	g := Game{}
-	g.id = id // does not change
 	g.tiles = newTiles()
-	g.state = READY
-	g.addPlayerChan = make(chan *Client)
-	g.mu = sync.Mutex{}
+	g.info = GameInfo{}
+	g.info.addPlayerChan = make(chan ClientInfo)
+	g.info.toGameChan = make(chan FromClientMsg)
 	return &g
 }
 
 func (g *Game) newTiles() {
-	log.Println("Making new tiles!")
-	g.mu.Lock()
 	g.tiles = newTiles()
-	g.mu.Unlock()
 }
 
 type Client struct {
-	id          int
 	conn        *websocket.Conn
-	game        *Game
-	gameChan    chan MessageType
-	tilesServed int
+	tilesServedCount int
+	tilesServed Tiles
 	maxScore    int
-	mu          sync.Mutex
+	toGameChan chan FromClientMsg
+	info      ClientInfo
 }
 
-func makeNewClient(id int) *Client {
+type ClientInfo struct {
+	toClientChan    chan FromGameMsg
+	newTileChan  chan NewTileMsg
+	assignGameChan chan GameInfo
+}
+
+func makeNewClient() *Client {
 	c := Client{}
-	c.id = id // does not change
-	c.game = globalGame
-	c.gameChan = make(chan MessageType)
-	c.mu = sync.Mutex{}
+	c.info = ClientInfo{}
+	c.info.toClientChan = make(chan FromGameMsg)
+	c.info.newTileChan = make(chan NewTileMsg)
+	c.info.assignGameChan = make(chan GameInfo)
+	c.newGame()
 	return &c
 }
 
-func (c *Client) addToGame(g *Game) {
-	c.mu.Lock()
-	c.game = g
-	c.mu.Unlock()
-	g.mu.Lock()
-	g.mu.Unlock()
+func (c *Client) newGame() {
+	c.tilesServedCount = 0
+	c.tilesServed = Tiles{}
+	c.maxScore = 0
 }
 
-func (c *Client) getInitialTiles() Tiles {
-	tiles := c.game.tiles[:12]
-	score := 0
-	for _, elt := range tiles {
-		score += elt.Points
-	}
-	c.mu.Lock()
-	c.tilesServed = 12
-	c.maxScore = score
-	c.mu.Unlock()
-	return tiles
+func (c *Client) addTile(t Tile) {
+	c.tilesServed = append(c.tilesServed, t)
+	c.tilesServedCount += 1
+	c.maxScore += t.Points
 }
 
-func (c *Client) getNextTile() Tile {
-	if c.tilesServed == len(c.game.tiles) {
-		log.Println("No tiles remaining to send!")
-		return Tile{Value: "", Points: 0}
-	}
-	c.mu.Lock()
-	tile := c.game.tiles[c.tilesServed]
-	c.tilesServed += 1
-	c.maxScore += tile.Points
-	c.mu.Unlock()
-	return tile
-}
+//func (c *Client) getInitialTiles() Tiles {
+	//tiles := c.game.tiles[:12]
+	//score := 0
+	//for _, elt := range tiles {
+		//score += elt.Points
+	//}
+	//c.mu.Lock()
+	//c.tilesServed = 12
+	//c.maxScore = score
+	//c.mu.Unlock()
+	//return tiles
+//}
+
+//func (c *Client) getNextTile() Tile {
+	//if c.tilesServed == len(c.game.tiles) {
+		//log.Println("No tiles remaining to send!")
+		//return Tile{Value: "", Points: 0}
+	//}
+	//c.mu.Lock()
+	//tile := c.game.tiles[c.tilesServed]
+	//c.tilesServed += 1
+	//c.maxScore += tile.Points
+	//c.mu.Unlock()
+	//return tile
+//}
 
 func (c *Client) getTilesServedCount() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.tilesServed
+	return c.tilesServedCount
 }
 
 func (c *Client) getAllTilesServed() Tiles {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.game.tiles[:c.tilesServed]
+	return c.tilesServed[:c.tilesServedCount]
 }
 
 func (c *Client) getMaxScore() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	return c.maxScore
-}
-
-func (c *Client) getGameChan() chan MessageType {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.gameChan
 }
 
 type Tile struct {
