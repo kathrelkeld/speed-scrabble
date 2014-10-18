@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -12,43 +13,89 @@ var globalGame = makeNewGame()
 var globalClient = makeNewClient()
 var newGameChan = make(chan GameRequest)
 
-type MessageType string
+type MessageType int
+
+const (
+	MsgOK MessageType = iota
+	MsgError
+	MsgExit
+	MsgConnect
+	MsgJoinGame
+	MsgGlobal
+	MsgNewTiles
+	MsgAddTile
+	MsgVerify
+	MsgScore
+	MsgGameOver
+)
+
+var MessageTypeToString = map[MessageType]string{
+	MsgOK:       "ok",
+	MsgError:    "error",
+	MsgExit:     "exit",
+	MsgConnect:  "connect",
+	MsgJoinGame: "joinGame",
+	MsgGlobal:   "global",
+	MsgNewTiles: "newTiles",
+	MsgAddTile:  "addTile",
+	MsgVerify:   "verify",
+	MsgScore:    "score",
+	MsgGameOver: "gameOver",
+}
+
+func (mt *MessageType) MarshalJSON() ([]byte, error) {
+	s := MessageTypeToString[*mt]
+	if s == "" {
+		log.Println("No such message string to marshal!")
+		panic("No such message string to marshal!")
+	}
+	return json.Marshal(s)
+}
+
+func (mt *MessageType) UnmarshalJSON(b []byte) error {
+	var s string
+	err := json.Unmarshal(b, &s)
+	if err != nil {
+		return err
+	}
+	for key, value := range MessageTypeToString {
+		if value == s {
+			*mt = key
+			return nil
+		}
+	}
+	log.Println("No such message string to unmarshal!")
+	panic("No such message string to unmarshal!")
+}
+
+func (mt MessageType) String() string {
+	return fmt.Sprintf("\"%v\"", MessageTypeToString[mt])
+}
 
 type GameRequest struct {
-	Type MessageType
+	Type  MessageType
 	cInfo ClientInfo
 }
 
 type SocketMsg struct {
-	Type     string
-	At       time.Time
-	Data     *json.RawMessage
+	Type MessageType
+	At   time.Time
+	Data *json.RawMessage
 }
 
 type FromClientMsg struct {
-	typ MessageType
-	cInfo   ClientInfo
+	typ   MessageType
+	cInfo ClientInfo
 }
 
 type FromGameMsg struct {
-	typ MessageType
-	gInfo   GameInfo
+	typ   MessageType
+	gInfo GameInfo
 }
 
 type NewTileMsg struct {
 	typ MessageType
 	t   Tile
-}
-
-func sendJSON(v interface{}, w http.ResponseWriter) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		log.Println("error:", err)
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
 }
 
 var upgrader = websocket.Upgrader{
@@ -72,7 +119,7 @@ func (c *Client) readSocketMsg() (SocketMsg, error) {
 	return m, nil
 }
 
-func (c *Client) sendSocketMsg(t string, d interface{}) error {
+func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
 	marshaledData, err := json.Marshal(d)
 	if err != nil {
 		log.Println("error:", err)
@@ -98,7 +145,7 @@ func (c *Client) readSocketMsgs(ch chan SocketMsg) {
 	for {
 		m, err := c.readSocketMsg()
 		if err != nil {
-			ch <- SocketMsg{Type: "exit"}
+			ch <- SocketMsg{Type: MsgExit}
 			return
 		}
 		ch <- m
@@ -106,32 +153,32 @@ func (c *Client) readSocketMsgs(ch chan SocketMsg) {
 }
 
 func (c *Client) runClient(socketChan chan SocketMsg) {
-	defer func(){c.toGameChan <- FromClientMsg{MessageType("exit"), c.info}}()
-	c.sendSocketMsg("ok", nil)
+	defer func() { c.toGameChan <- FromClientMsg{MsgExit, c.info} }()
+	c.sendSocketMsg(MsgOK, nil)
 	for {
 		select {
-		case m := <- socketChan:
+		case m := <-socketChan:
 			switch m.Type {
-			case "joinGame":
-				newGameChan <- GameRequest{"global", c.info}
-				gameInfo := <- c.info.assignGameChan
+			case MsgJoinGame:
+				newGameChan <- GameRequest{MsgGlobal, c.info}
+				gameInfo := <-c.info.assignGameChan
 				c.toGameChan = gameInfo.toGameChan
-				c.sendSocketMsg("ok", nil)
-			case "newTiles":
-				c.toGameChan <- FromClientMsg{MessageType("newTiles"), c.info}
-				_ = <- c.info.toClientChan
+				c.sendSocketMsg(MsgOK, nil)
+			case MsgNewTiles:
+				c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
+				_ = <-c.info.toClientChan
 				//TODO: fix new tiles
 				//tiles := c.getInitialTiles()
 				//log.Println("Sending tiles:", tiles)
 				//c.sendSocketMsg("tiles", tiles)
-			case "addTile":
+			case MsgAddTile:
 				//tile := c.getNextTile()
 				//if tile.Value == "" {
 				// TODO: send out of tiles error
-					//return
+				//return
 				//}
 				//c.sendSocketMsg("tile", tile)
-			case "verify":
+			case MsgVerify:
 				var board Board
 				err := json.Unmarshal([]byte(*m.Data), &board)
 				if err != nil {
@@ -139,11 +186,11 @@ func (c *Client) runClient(socketChan chan SocketMsg) {
 					return
 				}
 				s := board.scoreBoard(globalClient)
-				c.sendSocketMsg("score", s)
-			case "exit":
+				c.sendSocketMsg(MsgScore, s)
+			case MsgExit:
 				return
 			}
-		case gm := <- c.info.toClientChan:
+		case gm := <-c.info.toClientChan:
 			log.Println("Game told client:", gm)
 		}
 	}
@@ -162,7 +209,7 @@ func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	if m.Type != "newClient" {
+	if m.Type != MsgConnect {
 		log.Println("Incorrect type for new connection!")
 		return
 	}
@@ -171,9 +218,9 @@ func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 	go c.readSocketMsgs(socketChan)
 }
 
-func addPlayerToAGame() {
+func addAPlayerToAGame() {
 	for {
-		r := <- newGameChan
+		r := <-newGameChan
 		log.Println("newGameChan: Adding client to game")
 		globalGame.info.addPlayerChan <- r.cInfo
 		r.cInfo.assignGameChan <- globalGame.info
@@ -181,18 +228,18 @@ func addPlayerToAGame() {
 }
 
 type ClientMessage struct {
-	typ MessageType
+	typ        MessageType
 	clientChan chan MessageType
 }
 
 func receiveClientMessages(gameChan chan ClientMessage,
-		clientChan, endChan chan MessageType) {
+	clientChan, endChan chan MessageType) {
 	for {
 		select {
-		case _ = <- endChan:
+		case _ = <-endChan:
 			log.Println("ClientMessage: Got exit signal! Ending loop!")
 			break
-		case m := <- clientChan:
+		case m := <-clientChan:
 			log.Println("Got a client message: ", m)
 			gameChan <- ClientMessage{m, clientChan}
 		}
@@ -203,17 +250,17 @@ func (g *Game) runGame() {
 	clientChans := make(map[chan FromGameMsg]bool)
 	for {
 		select {
-		case clientInfo := <- g.info.addPlayerChan:
+		case clientInfo := <-g.info.addPlayerChan:
 			log.Println("runGame: Adding client to game")
 			clientChans[clientInfo.toClientChan] = false
 			//client.gameChan <- MessageType("ok")
-		case cm := <- g.info.toGameChan:
+		case cm := <-g.info.toGameChan:
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {
-			case "newTiles":
+			case MsgNewTiles:
 				g.newTiles()
-				cm.cInfo.toClientChan <- FromGameMsg{MessageType("ok"), g.info}
-			case "exit":
+				cm.cInfo.toClientChan <- FromGameMsg{MsgOK, g.info}
+			case MsgExit:
 				delete(clientChans, cm.cInfo.toClientChan)
 				log.Println("runGame: Removing client from game")
 			}
@@ -222,7 +269,7 @@ func (g *Game) runGame() {
 }
 
 func main() {
-	go addPlayerToAGame()
+	go addAPlayerToAGame()
 	go globalGame.runGame()
 	const addr = "localhost:8080"
 	fileserver := http.FileServer(http.Dir("public"))

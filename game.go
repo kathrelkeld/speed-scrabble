@@ -12,7 +12,7 @@ type Game struct {
 
 type GameInfo struct {
 	addPlayerChan chan ClientInfo
-	toGameChan chan FromClientMsg
+	toGameChan    chan FromClientMsg
 }
 
 func makeNewGame() *Game {
@@ -29,17 +29,17 @@ func (g *Game) newTiles() {
 }
 
 type Client struct {
-	conn        *websocket.Conn
+	conn             *websocket.Conn
 	tilesServedCount int
-	tilesServed Tiles
-	maxScore    int
-	toGameChan chan FromClientMsg
-	info      ClientInfo
+	tilesServed      Tiles
+	maxScore         int
+	toGameChan       chan FromClientMsg
+	info             ClientInfo
 }
 
 type ClientInfo struct {
-	toClientChan    chan FromGameMsg
-	newTileChan  chan NewTileMsg
+	toClientChan   chan FromGameMsg
+	newTileChan    chan NewTileMsg
 	assignGameChan chan GameInfo
 }
 
@@ -66,29 +66,29 @@ func (c *Client) addTile(t Tile) {
 }
 
 //func (c *Client) getInitialTiles() Tiles {
-	//tiles := c.game.tiles[:12]
-	//score := 0
-	//for _, elt := range tiles {
-		//score += elt.Points
-	//}
-	//c.mu.Lock()
-	//c.tilesServed = 12
-	//c.maxScore = score
-	//c.mu.Unlock()
-	//return tiles
+//tiles := c.game.tiles[:12]
+//score := 0
+//for _, elt := range tiles {
+//score += elt.Points
+//}
+//c.mu.Lock()
+//c.tilesServed = 12
+//c.maxScore = score
+//c.mu.Unlock()
+//return tiles
 //}
 
 //func (c *Client) getNextTile() Tile {
-	//if c.tilesServed == len(c.game.tiles) {
-		//log.Println("No tiles remaining to send!")
-		//return Tile{Value: "", Points: 0}
-	//}
-	//c.mu.Lock()
-	//tile := c.game.tiles[c.tilesServed]
-	//c.tilesServed += 1
-	//c.maxScore += tile.Points
-	//c.mu.Unlock()
-	//return tile
+//if c.tilesServed == len(c.game.tiles) {
+//log.Println("No tiles remaining to send!")
+//return Tile{Value: "", Points: 0}
+//}
+//c.mu.Lock()
+//tile := c.game.tiles[c.tilesServed]
+//c.tilesServed += 1
+//c.maxScore += tile.Points
+//c.mu.Unlock()
+//return tile
 //}
 
 func (c *Client) getTilesServedCount() int {

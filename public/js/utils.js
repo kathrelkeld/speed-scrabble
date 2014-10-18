@@ -124,7 +124,7 @@ function sendAndGetJSON(data, page, handler) {
 function websocketCreate(handler) {
 	var socket = new WebSocket("ws://localhost:8080/connect");
 	socket.onopen = function (e) {
-		websocketSendAndGet("newClient", null, null);
+		websocketSendAndGet("connect", null, null);
 		handler()
 	}
 	return socket
