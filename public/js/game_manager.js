@@ -23,7 +23,7 @@ GameManager.prototype.setup = function() {
   this.ghostTile.div = createDiv("ghost", this.div);
   resizeDiv(this.ghostTile.div, vec(this.cellSize, this.cellSize));
   this.ghostTile.div.classList.add('hidden');
-	console.log("Finished setting up game!")
+  console.log("Finished setting up game!")
 }
 
 // Add a list of tiles.
@@ -67,31 +67,31 @@ GameManager.prototype.moveTileToTray = function(tile) {
 
 // Send request for new Letters and add them.
 GameManager.prototype.requestTiles = function() {
-	console.log("Requesting new tiles!");
-	websocketAlert("newTiles");
+  console.log("Requesting new tiles!");
+  websocketAlert("newTiles");
 }
 
 // Send request for new letter and add it.
 GameManager.prototype.requestNewTile = function() {
-	websocketAlert("addTile");
+  websocketAlert("addTile");
 }
 
 // Remove all tiles and start a new game.
 GameManager.prototype.reload = function() {
   this.grid.removeAllTiles();
   this.tray.removeAllTiles();
-	gamemanager.requestTiles();
+  gamemanager.requestTiles();
 }
 
 // Join a game.
 GameManager.prototype.joinGame = function() {
-	console.log("Join game!");
+  console.log("Join game!");
   websocketRequest("joinGame", function() {});
 }
 
 GameManager.prototype.verify = function() {
-	var tileValues = this.stringifyTiles();
-	websocketSendAndGet("verify", tileValues, function() {})
+  var tileValues = this.stringifyTiles();
+  websocketSendAndGet("verify", tileValues, function() {})
 
 }
 
@@ -108,16 +108,16 @@ GameManager.prototype.stringifyTiles = function() {
       }
     }
   }
-	return tileValues;
+  return tileValues;
 }
 
 // Take action when a score is received (game over).
 GameManager.prototype.displayScore = function(score) {
-	if (score["Valid"]) {
-		setMessages("You win!");
-	} else {
-		setMessages("Board is incomplete: score of " + score["Score"]);
-	}
+  if (score["Valid"]) {
+    setMessages("You win!");
+  } else {
+    setMessages("Board is incomplete: score of " + score["Score"]);
+  }
 }
 
 // Add onclick handlers to the various game buttons
@@ -140,29 +140,29 @@ GameManager.prototype.addButtonHandlers = function() {
 }
 
 function websocketHandleMessage(type, data, responseFunc) {
-	if (type == "ok" || type == "error" || type == "fail") {
-		responseFunc(type, data);
-		return;
-	}
-	switch(type) {
-		case "newTiles":
-			gamemanager.grid.removeAllTiles();
-			gamemanager.tray.removeAllTiles();
-			gamemanager.addNewLetters(data);
-			break;
-		case "addTile":
-			gamemanager.addNewLetters([data]);
-			break;
-		case "score":
-			gamemanager.displayScore(data);
-			break;
-		case "sendBoard":
-			var tileValues = gamemanager.stringifyTiles();
-			websocketSendAndGet("sendBoard", tileValues, function() {
-				//TODO: handle error
-			});
-			break;
-	}
+  if (type == "ok" || type == "error" || type == "fail") {
+    responseFunc(type, data);
+    return;
+  }
+  switch(type) {
+    case "newTiles":
+      gamemanager.grid.removeAllTiles();
+      gamemanager.tray.removeAllTiles();
+      gamemanager.addNewLetters(data);
+      break;
+    case "addTile":
+      gamemanager.addNewLetters([data]);
+      break;
+    case "score":
+      gamemanager.displayScore(data);
+      break;
+    case "sendBoard":
+      var tileValues = gamemanager.stringifyTiles();
+      websocketSendAndGet("sendBoard", tileValues, function() {
+        //TODO: handle error
+      });
+      break;
+  }
 }
 
 function newGameManager() {
@@ -175,5 +175,5 @@ function setMessages(text) {
 
 window.requestAnimationFrame(function() {
   console.log("Starting Game!")
-	socket = websocketCreate();
+  socket = websocketCreate();
 });

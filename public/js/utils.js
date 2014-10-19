@@ -127,38 +127,38 @@ function websocketCreate() {
   if (loc.protocol === "https:") {
     wsPrefix = "wss://";
   }
-	var socket = new WebSocket(wsPrefix + loc.host + "/connect");
-	socket.onopen = function (e) {
-		websocketRequest("connect", newGameManager);
-	}
-	return socket
+  var socket = new WebSocket(wsPrefix + loc.host + "/connect");
+  socket.onopen = function (e) {
+    websocketRequest("connect", newGameManager);
+  }
+  return socket
 }
 
 function websocketGet(e, handler) {
-	var m = JSON.parse(e.data);
-	console.log("Receiving:", m['Type']);
-	websocketHandleMessage(m["Type"], m["Data"], handler);
+  var m = JSON.parse(e.data);
+  console.log("Receiving:", m['Type']);
+  websocketHandleMessage(m["Type"], m["Data"], handler);
 }
 
 // Takes a type, data, and response handler that accepts type and data.
 function websocketSendAndGet(type, data, handler) {
-	console.log("Sending:", type);
-	var message = {
-		type: type,
-		//TODO: don't hardcode this...
-		at: "2014-01-02T15:04:05Z",
-		data: data
-	};
-	socket.send(JSON.stringify(message));
-	socket.onmessage = function(e) {
-		websocketGet(e, handler);
-	}
+  console.log("Sending:", type);
+  var message = {
+    type: type,
+    //TODO: don't hardcode this...
+    at: "2014-01-02T15:04:05Z",
+    data: data
+  };
+  socket.send(JSON.stringify(message));
+  socket.onmessage = function(e) {
+    websocketGet(e, handler);
+  }
 }
 
 function websocketRequest(type, handler) {
-	websocketSendAndGet(type, "", handler)
+  websocketSendAndGet(type, "", handler)
 }
 
 function websocketAlert(type) {
-	websocketSendAndGet(type, "", function(type, data) {})
+  websocketSendAndGet(type, "", function(type, data) {})
 }
