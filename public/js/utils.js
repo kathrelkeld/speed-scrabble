@@ -122,7 +122,12 @@ function sendAndGetJSON(data, page, handler) {
 }
 
 function websocketCreate() {
-	var socket = new WebSocket("ws://localhost:8080/connect");
+  var loc = window.location;
+  var wsPrefix = "ws://";
+  if (loc.protocol === "https:") {
+    wsPrefix = "wss://";
+  }
+	var socket = new WebSocket(wsPrefix + loc.host + "/connect");
 	socket.onopen = function (e) {
 		websocketRequest("connect", newGameManager);
 	}
