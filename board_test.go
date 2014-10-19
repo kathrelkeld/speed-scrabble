@@ -132,9 +132,8 @@ func TestVariousBoardScores(t *testing.T) {
 			tiles = append(tiles, Tile{elt, pointValues[elt]})
 			maxScore += pointValues[elt]
 		}
-		var testGame = &Game{tiles: tiles}
-		var testClient = &Client{maxScore: maxScore, tilesServed: len(tiles),
-			game: testGame}
+		testClient := makeNewClient()
+		testClient.newTiles(tiles)
 		s := input.board.scoreBoard(testClient)
 		if !reflect.DeepEqual(s, input.score) {
 			testError(t, s, input.score, input.name)

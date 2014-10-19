@@ -5,11 +5,9 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"time"
 )
 
 var globalGame = makeNewGame()
-var globalClient = makeNewClient()
 var newGameChan = make(chan GameRequest)
 
 var upgrader = websocket.Upgrader{
@@ -34,13 +32,11 @@ func (c *Client) readSocketMsg() (SocketMsg, error) {
 }
 
 func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
-	marshaledData, err := json.Marshal(d)
+	m, err := newSocketMsg(t, d)
 	if err != nil {
 		log.Println("error:", err)
 		return err
 	}
-	raw := json.RawMessage(marshaledData)
-	m := SocketMsg{Type: t, At: time.Now(), Data: &raw}
 	j, err := json.Marshal(m)
 	if err != nil {
 		log.Println("error:", err)
@@ -55,28 +51,35 @@ func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
 	return nil
 }
 
-func (c *Client) readSocketMsgs(ch chan SocketMsg) {
+func (c *Client) readSocketMsgs() {
 	for {
 		m, err := c.readSocketMsg()
 		if err != nil {
-			ch <- SocketMsg{Type: MsgExit}
+			c.socketChan <- SocketMsg{Type: MsgExit}
 			return
 		}
-		ch <- m
+		c.socketChan <- m
 	}
 }
 
-func (c *Client) runClient(socketChan chan SocketMsg) {
-	defer func() { c.toGameChan <- FromClientMsg{MsgExit, c.info} }()
+func (c *Client) onRunClientExit() {
+	c.toGameChan <- FromClientMsg{MsgExit, c.info}
+	c.cleanup()
+}
+
+func (c *Client) runClient() {
+	defer c.onRunClientExit()
+	c.running = true
 	c.sendSocketMsg(MsgOK, nil)
 	for {
 		select {
-		case m := <-socketChan:
+		case m := <-c.socketChan:
 			switch m.Type {
 			case MsgJoinGame:
 				newGameChan <- GameRequest{MsgGlobal, c.info}
 				gameInfo := <-c.info.assignGameChan
 				c.toGameChan = gameInfo.toGameChan
+				c.validGame = true
 				c.sendSocketMsg(MsgOK, nil)
 			case MsgNewTiles:
 				c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
@@ -101,9 +104,10 @@ func (c *Client) runClient(socketChan chan SocketMsg) {
 					log.Println("error:", err)
 					return
 				}
-				s := board.scoreBoard(globalClient)
+				s := board.scoreBoard(c)
 				c.sendSocketMsg(MsgScore, s)
 			case MsgExit:
+				c.toGameChan <- FromClientMsg{MsgExit, c.info}
 				return
 			}
 		case gm := <-c.info.toClientChan:
@@ -119,7 +123,7 @@ func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 		log.Println("error:", err)
 		return
 	}
-	c := globalClient
+	c := makeNewClient()
 	c.conn = conn
 	m, err := c.readSocketMsg()
 	if err != nil {
@@ -129,9 +133,8 @@ func handleWebsocket(w http.ResponseWriter, req *http.Request) {
 		log.Println("Incorrect type for new connection!")
 		return
 	}
-	socketChan := make(chan SocketMsg)
-	go c.runClient(socketChan)
-	go c.readSocketMsgs(socketChan)
+	go c.runClient()
+	go c.readSocketMsgs()
 }
 
 func addAPlayerToAGame() {
@@ -172,7 +175,7 @@ func (g *Game) allClientsTrue() bool {
 
 func (g *Game) sendToAllClients(t MessageType) {
 	for key := range g.clientChans {
-		key <-FromGameMsg{t, g.info}
+		key <- FromGameMsg{t, g.info}
 	}
 }
 
@@ -213,7 +216,13 @@ func (g *Game) runGame() {
 	}
 }
 
+func cleanup() {
+	close(newGameChan)
+	globalGame.cleanup()
+}
+
 func main() {
+	defer cleanup()
 	go addAPlayerToAGame()
 	go globalGame.runGame()
 	const addr = "localhost:8080"

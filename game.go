@@ -1,19 +1,18 @@
 package main
 
 import (
-	"github.com/gorilla/websocket"
 	"math/rand"
 )
 
 type Game struct {
-	tiles Tiles
-	info  GameInfo
-	clientChans   map[chan FromGameMsg]bool
+	tiles       Tiles
+	clientChans map[chan FromGameMsg]bool
+	info        GameInfo
 }
 
 type GameInfo struct {
-	addPlayerChan chan ClientInfo
 	toGameChan    chan FromClientMsg
+	addPlayerChan chan ClientInfo
 }
 
 func makeNewGame() *Game {
@@ -21,9 +20,14 @@ func makeNewGame() *Game {
 	g.tiles = newTiles()
 	g.clientChans = make(map[chan FromGameMsg]bool)
 	g.info = GameInfo{}
-	g.info.addPlayerChan = make(chan ClientInfo)
 	g.info.toGameChan = make(chan FromClientMsg)
+	g.info.addPlayerChan = make(chan ClientInfo)
 	return &g
+}
+
+func (g *Game) cleanup() {
+	close(g.info.toGameChan)
+	close(g.info.addPlayerChan)
 }
 
 func (g *Game) newTiles() {
@@ -31,10 +35,13 @@ func (g *Game) newTiles() {
 }
 
 type Client struct {
-	conn        *websocket.Conn
+	conn        WebSocketConn
+	socketChan  chan SocketMsg
 	tilesServed Tiles
 	maxScore    int
 	toGameChan  chan FromClientMsg
+	validGame   bool
+	running     bool
 	info        ClientInfo
 }
 
@@ -47,11 +54,22 @@ type ClientInfo struct {
 
 func makeNewClient() *Client {
 	c := Client{}
+	c.socketChan = make(chan SocketMsg)
+	c.validGame = false
+	c.running = false
 	c.info = ClientInfo{}
 	c.info.toClientChan = make(chan FromGameMsg)
 	c.info.newTilesChan = make(chan NewTileMsg)
 	c.info.assignGameChan = make(chan GameInfo)
 	return &c
+}
+
+func (c *Client) cleanup() {
+	close(c.socketChan)
+	close(c.info.toClientChan)
+	close(c.info.newTilesChan)
+	close(c.info.assignGameChan)
+	c.running = false
 }
 
 func (c *Client) newTiles(t []Tile) {
