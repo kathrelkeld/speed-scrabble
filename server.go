@@ -67,6 +67,16 @@ func (c *Client) onRunClientExit() {
 	c.cleanup()
 }
 
+func (c *Client) handleSendBoard(raw *json.RawMessage) Score {
+	var board Board
+	err := json.Unmarshal([]byte(*raw), &board)
+	if err != nil {
+		log.Println("error:", err)
+		return Score{}
+	}
+	return board.scoreBoard(c)
+}
+
 func (c *Client) runClient() {
 	defer c.onRunClientExit()
 	c.running = true
@@ -82,13 +92,15 @@ func (c *Client) runClient() {
 				c.validGame = true
 				c.sendSocketMsg(MsgOK, nil)
 			case MsgNewTiles:
-				c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
+				c.toGameChan <- FromClientMsg{MsgStart, c.info}
+				//_ = <- c.info.toClientChan
+				//c.toGameChan <- FromClientMsg{MsgStart, c.info}
+				//tileMsg := <-c.info.newTilesChan
 				//TODO: check for error
-				tileMsg := <-c.info.newTilesChan
-				tiles := tileMsg.tiles
-				log.Println("Sending tiles:", tiles)
-				c.sendSocketMsg(MsgNewTiles, tiles)
-				c.newTiles(tiles)
+				//tiles := tileMsg.tiles
+				//log.Println("Sending tiles:", tiles)
+				//c.sendSocketMsg(MsgNewTiles, tiles)
+				//c.newTiles(tiles)
 			case MsgAddTile:
 				c.toGameChan <- FromClientMsg{MsgAddTile, c.info}
 				tileMsg := <-c.info.newTilesChan
@@ -98,20 +110,38 @@ func (c *Client) runClient() {
 				c.sendSocketMsg(MsgAddTile, tile)
 				c.addTile(tile)
 			case MsgVerify:
-				var board Board
-				err := json.Unmarshal([]byte(*m.Data), &board)
-				if err != nil {
-					log.Println("error:", err)
-					return
-				}
-				s := board.scoreBoard(c)
-				c.sendSocketMsg(MsgScore, s)
+				score := c.handleSendBoard(m.Data)
+				//if !score.Valid {
+				//c.sendSocketMsg(MsgError, score)
+				//} else {
+				c.sendSocketMsg(MsgScore, score)
+				c.toGameChan <- FromClientMsg{MsgGameOver, c.info}
+				//}
+			case MsgSendBoard:
+				score := c.handleSendBoard(m.Data)
+				c.sendSocketMsg(MsgScore, score)
 			case MsgExit:
 				c.toGameChan <- FromClientMsg{MsgExit, c.info}
 				return
 			}
 		case gm := <-c.info.toClientChan:
-			log.Println("Game told client:", gm)
+			log.Println("Game told client:", gm.typ)
+			switch gm.typ {
+			case MsgNewGame:
+				//TODO: tell playter that game will start
+				c.toGameChan <- FromClientMsg{MsgStart, c.info}
+			case MsgStart:
+				c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
+				tileMsg := <-c.info.newTilesChan
+				//TODO: check for error
+				tiles := tileMsg.tiles
+				log.Println("Sending tiles:", tiles)
+				c.sendSocketMsg(MsgNewTiles, tiles)
+				c.newTiles(tiles)
+			case MsgGameOver:
+				c.sendSocketMsg(MsgSendBoard, nil)
+				c.toGameChan <- FromClientMsg{MsgOK, c.info}
+			}
 		}
 	}
 }
@@ -173,18 +203,24 @@ func (g *Game) allClientsTrue() bool {
 	return result
 }
 
-func (g *Game) sendToAllClients(t MessageType) {
+func (g *Game) sendToAllClients(t MessageType, except chan FromGameMsg) {
 	for key := range g.clientChans {
-		key <- FromGameMsg{t, g.info}
+		if key != except {
+			key <- FromGameMsg{t, g.info}
+		}
 	}
 }
 
-func (g *Game) hearFromAllClients() {
+func (g *Game) hearFromAllClients(t MessageType, except chan FromGameMsg) {
 	for key := range g.clientChans {
 		g.clientChans[key] = false
 	}
+	g.clientChans[except] = true
 	for !g.allClientsTrue() {
 		cm := <-g.info.toGameChan
+		if cm.typ != t {
+			cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info}
+		}
 		g.clientChans[cm.cInfo.toClientChan] = true
 	}
 }
@@ -199,18 +235,48 @@ func (g *Game) runGame() {
 		case cm := <-g.info.toGameChan:
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {
-			case MsgNewTiles:
-				//TODO: handle confirm from all games
+			case MsgStart:
+				if g.isRunning { //Game is already running!
+					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info}
+					continue
+				}
+				g.sendToAllClients(MsgNewGame, cm.cInfo.toClientChan)
+				g.hearFromAllClients(MsgStart, cm.cInfo.toClientChan)
 				g.newTiles()
+				g.sendToAllClients(MsgStart, cm.cInfo.toClientChan)
+				cm.cInfo.toClientChan <- FromGameMsg{MsgStart, g.info}
+				g.isRunning = true
+			case MsgNewTiles:
+				if !g.isRunning {
+					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info}
+					continue
+				}
+				//TODO: handle confirm from all games
 				m := NewTileMsg{MsgOK, g.tiles[:12], g.info}
 				cm.cInfo.newTilesChan <- m
 			case MsgAddTile:
+				if !g.isRunning {
+					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info}
+					continue
+				}
+				if cm.cInfo.tilesServedCount >= len(g.tiles) {
+					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info}
+					continue
+				}
 				m := NewTileMsg{MsgOK, []Tile{g.tiles[cm.cInfo.tilesServedCount]},
 					g.info}
 				cm.cInfo.newTilesChan <- m
+			case MsgGameOver:
+				//TODO: get scores to determine a winner
+				g.sendToAllClients(MsgGameOver, cm.cInfo.toClientChan)
+				g.hearFromAllClients(MsgOK, cm.cInfo.toClientChan)
+				g.isRunning = false
 			case MsgExit:
 				delete(g.clientChans, cm.cInfo.toClientChan)
 				log.Println("runGame: Removing client from game")
+				if len(g.clientChans) == 0 {
+					g.isRunning = false
+				}
 			}
 		}
 	}
@@ -225,7 +291,7 @@ func main() {
 	defer cleanup()
 	go addAPlayerToAGame()
 	go globalGame.runGame()
-	const addr = "localhost:8080"
+	const addr = ":8080"
 	fileserver := http.FileServer(http.Dir("public"))
 	redirect := http.RedirectHandler("public/scrabble.html", http.StatusFound)
 

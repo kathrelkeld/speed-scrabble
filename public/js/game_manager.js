@@ -68,18 +68,12 @@ GameManager.prototype.moveTileToTray = function(tile) {
 // Send request for new Letters and add them.
 GameManager.prototype.requestTiles = function() {
 	console.log("Requesting new tiles!");
-  websocketRequest("newTiles", function(letters) {
-		console.log("Got tiles:", letters)
-		gamemanager.addNewLetters(letters);
-		setMessages("Game has started!");
-  });
+	websocketAlert("newTiles");
 }
 
 // Send request for new letter and add it.
 GameManager.prototype.requestNewTile = function() {
-  websocketRequest("addTile", function(letter) {
-    gamemanager.addNewLetters([letter]);
-  });
+	websocketAlert("addTile");
 }
 
 // Remove all tiles and start a new game.
@@ -95,8 +89,14 @@ GameManager.prototype.joinGame = function() {
   websocketRequest("joinGame", function() {});
 }
 
+GameManager.prototype.verify = function() {
+	var tileValues = this.stringifyTiles();
+	websocketSendAndGet("verify", tileValues, function() {})
+
+}
+
 // Send gameboard for verification.
-GameManager.prototype.verifyTiles = function() {
+GameManager.prototype.stringifyTiles = function() {
   var tileValues = [];
   for (var i = 0; i < this.grid.size.x; i++) {
       tileValues.push([]);
@@ -108,14 +108,16 @@ GameManager.prototype.verifyTiles = function() {
       }
     }
   }
-  //websocketSendAndGet("verify", tileValues, function(result) {
-  websocketSendAndGet("verify", tileValues, function(result) {
-    if (result["Valid"]) {
-      setMessages("You win!");
-    } else {
-      setMessages("Board is incomplete");
-    }
-  });
+	return tileValues;
+}
+
+// Take action when a score is received (game over).
+GameManager.prototype.displayScore = function(score) {
+	if (score["Valid"]) {
+		setMessages("You win!");
+	} else {
+		setMessages("Board is incomplete: score of " + score["Score"]);
+	}
 }
 
 // Add onclick handlers to the various game buttons
@@ -133,8 +135,34 @@ GameManager.prototype.addButtonHandlers = function() {
     gamemanager.joinGame();
   };
   document.getElementById("verify").onclick = function() {
-    gamemanager.verifyTiles();
+    gamemanager.verify();
   };
+}
+
+function websocketHandleMessage(type, data, responseFunc) {
+	if (type == "ok" || type == "error" || type == "fail") {
+		responseFunc(type, data);
+		return;
+	}
+	switch(type) {
+		case "newTiles":
+			gamemanager.grid.removeAllTiles();
+			gamemanager.tray.removeAllTiles();
+			gamemanager.addNewLetters(data);
+			break;
+		case "addTile":
+			gamemanager.addNewLetters([data]);
+			break;
+		case "score":
+			gamemanager.displayScore(data);
+			break;
+		case "sendBoard":
+			var tileValues = gamemanager.stringifyTiles();
+			websocketSendAndGet("sendBoard", tileValues, function() {
+				//TODO: handle error
+			});
+			break;
+	}
 }
 
 function newGameManager() {
@@ -147,5 +175,5 @@ function setMessages(text) {
 
 window.requestAnimationFrame(function() {
   console.log("Starting Game!")
-	socket = websocketCreate(newGameManager);
+	socket = websocketCreate();
 });

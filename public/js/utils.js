@@ -121,34 +121,39 @@ function sendAndGetJSON(data, page, handler) {
   xmlhttp.send(JSON.stringify(data));
 }
 
-function websocketCreate(handler) {
+function websocketCreate() {
 	var socket = new WebSocket("ws://localhost:8080/connect");
 	socket.onopen = function (e) {
-		websocketSendAndGet("connect", null, null);
-		handler()
+		websocketRequest("connect", newGameManager);
 	}
 	return socket
 }
 
+function websocketGet(e, handler) {
+	var m = JSON.parse(e.data);
+	console.log("Receiving:", m['Type']);
+	websocketHandleMessage(m["Type"], m["Data"], handler);
+}
+
+// Takes a type, data, and response handler that accepts type and data.
 function websocketSendAndGet(type, data, handler) {
 	console.log("Sending:", type);
 	var message = {
 		type: type,
-		id: 1,
 		//TODO: don't hardcode this...
 		at: "2014-01-02T15:04:05Z",
 		data: data
 	};
 	socket.send(JSON.stringify(message));
 	socket.onmessage = function(e) {
-		var response = JSON.parse(e.data);
-		if (handler != null) {
-			handler(response["Data"]);
-		}
-		console.log("Receiving:", response['Type']);
+		websocketGet(e, handler);
 	}
 }
 
 function websocketRequest(type, handler) {
 	websocketSendAndGet(type, "", handler)
+}
+
+function websocketAlert(type) {
+	websocketSendAndGet(type, "", function(type, data) {})
 }

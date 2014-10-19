@@ -47,3 +47,14 @@ func TestExitMessage(t *testing.T) {
 	m, _ := newSocketMsg(MsgExit, nil)
 	conn.socketMsgChan <- m
 }
+
+func TestSynchonousStart(t *testing.T) {
+	_, connA := runTestClient(t)
+	defer close(connA.socketMsgChan)
+	_, connB := runTestClient(t)
+	defer close(connB.socketMsgChan)
+	m, _ := newSocketMsg(MsgJoinGame, nil)
+	connA.socketMsgChan <- m
+	connB.socketMsgChan <- m
+	m, _ := newSocketMsg(MsgStart)
+}

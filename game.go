@@ -7,6 +7,7 @@ import (
 type Game struct {
 	tiles       Tiles
 	clientChans map[chan FromGameMsg]bool
+	isRunning   bool
 	info        GameInfo
 }
 
@@ -18,6 +19,7 @@ type GameInfo struct {
 func makeNewGame() *Game {
 	g := Game{}
 	g.tiles = newTiles()
+	g.isRunning = false
 	g.clientChans = make(map[chan FromGameMsg]bool)
 	g.info = GameInfo{}
 	g.info.toGameChan = make(chan FromClientMsg)
