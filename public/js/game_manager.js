@@ -68,7 +68,7 @@ GameManager.prototype.moveTileToTray = function(tile) {
 // Send request for new Letters and add them.
 GameManager.prototype.requestTiles = function() {
   console.log("Requesting new tiles!");
-  websocketAlert("newTiles");
+  websocketAlert("start");
 }
 
 // Send request for new letter and add it.
@@ -145,7 +145,7 @@ function websocketHandleMessage(type, data, responseFunc) {
     return;
   }
   switch(type) {
-    case "newTiles":
+    case "start":
       gamemanager.grid.removeAllTiles();
       gamemanager.tray.removeAllTiles();
       gamemanager.addNewLetters(data);

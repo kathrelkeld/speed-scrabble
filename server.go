@@ -77,7 +77,19 @@ func (c *Client) handleSendBoard(raw *json.RawMessage) Score {
 	return board.scoreBoard(c)
 }
 
-func (c *Client) handlePageMessage(m *SocketMsg) error {
+func (c *Client) handleMsgStart() {
+	c.toGameChan <- FromClientMsg{MsgStart, c.info}
+	_ = <- c.info.toClientChan
+	c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
+	tileMsg := <-c.info.newTilesChan
+	//TODO: handle MsgError
+	tiles := tileMsg.tiles
+	log.Println("Sending tiles:", tiles)
+	c.sendSocketMsg(MsgStart, tiles)
+	c.newTiles(tiles)
+}
+
+func (c *Client) handleSocketMsg(m *SocketMsg) error {
 	switch m.Type {
 	case MsgJoinGame:
 		newGameChan <- GameRequest{MsgGlobal, c.info}
@@ -85,16 +97,15 @@ func (c *Client) handlePageMessage(m *SocketMsg) error {
 		c.toGameChan = gameInfo.toGameChan
 		c.validGame = true
 		c.sendSocketMsg(MsgOK, nil)
-	case MsgNewTiles:
+	case MsgStart:
+		if !c.validGame {
+			log.Println("Not a valid game to start!")
+			return nil
+		}
 		c.toGameChan <- FromClientMsg{MsgStart, c.info}
-		//_ = <- c.info.toClientChan
-		//c.toGameChan <- FromClientMsg{MsgStart, c.info}
-		//tileMsg := <-c.info.newTilesChan
-		//TODO: check for error
-		//tiles := tileMsg.tiles
-		//log.Println("Sending tiles:", tiles)
-		//c.sendSocketMsg(MsgNewTiles, tiles)
-		//c.newTiles(tiles)
+		//TODO: handle MsgError
+		_ = <- c.info.toClientChan
+		c.handleMsgStart()
 	case MsgAddTile:
 		c.toGameChan <- FromClientMsg{MsgAddTile, c.info}
 		tileMsg := <-c.info.newTilesChan
@@ -105,6 +116,7 @@ func (c *Client) handlePageMessage(m *SocketMsg) error {
 		c.addTile(tile)
 	case MsgVerify:
 		score := c.handleSendBoard(m.Data)
+		//TODO: uncomment this when code is stable
 		//if !score.Valid {
 		//c.sendSocketMsg(MsgError, score)
 		//} else {
@@ -121,19 +133,10 @@ func (c *Client) handlePageMessage(m *SocketMsg) error {
 	return nil
 }
 
-func (c *Client) handleClientMessage(m *FromGameMsg) error {
+func (c *Client) handleFromGameMsg(m *FromGameMsg) error {
 	switch m.typ {
 	case MsgNewGame:
-		//TODO: tell playter that game will start
-		c.toGameChan <- FromClientMsg{MsgStart, c.info}
-	case MsgStart:
-		c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
-		tileMsg := <-c.info.newTilesChan
-		//TODO: check for error
-		tiles := tileMsg.tiles
-		log.Println("Sending tiles:", tiles)
-		c.sendSocketMsg(MsgNewTiles, tiles)
-		c.newTiles(tiles)
+		c.handleMsgStart()
 	case MsgGameOver:
 		c.sendSocketMsg(MsgSendBoard, nil)
 		c.toGameChan <- FromClientMsg{MsgOK, c.info}
@@ -148,12 +151,12 @@ func (c *Client) runClient() {
 	for {
 		select {
 		case m := <-c.socketChan:
-			if c.handlePageMessage(&m) != nil {
+			if c.handleSocketMsg(&m) != nil {
 				return
 			}
 		case gm := <-c.info.toClientChan:
 			log.Println("Game told client:", gm.typ)
-			if c.handleClientMessage(&gm) != nil {
+			if c.handleFromGameMsg(&gm) != nil {
 				return
 			}
 		}
@@ -217,19 +220,18 @@ func (g *Game) allClientsTrue() bool {
 	return result
 }
 
-func (g *Game) sendToAllClients(t MessageType, except chan FromGameMsg) {
+func (g *Game) sendToAllClients(t MessageType) {
+	log.Println("Sending to all clients.")
 	for key := range g.clientChans {
-		if key != except {
-			key <- FromGameMsg{t, g.info}
-		}
+		key <- FromGameMsg{t, g.info}
 	}
 }
 
-func (g *Game) hearFromAllClients(t MessageType, except chan FromGameMsg) {
+func (g *Game) hearFromAllClients(t MessageType) {
+	log.Println("Hearing from all clients.")
 	for key := range g.clientChans {
 		g.clientChans[key] = false
 	}
-	g.clientChans[except] = true
 	for !g.allClientsTrue() {
 		cm := <-g.info.toGameChan
 		if cm.typ != t {
@@ -254,11 +256,10 @@ func (g *Game) runGame() {
 					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info}
 					continue
 				}
-				g.sendToAllClients(MsgNewGame, cm.cInfo.toClientChan)
-				g.hearFromAllClients(MsgStart, cm.cInfo.toClientChan)
+				g.sendToAllClients(MsgNewGame)
+				g.hearFromAllClients(MsgStart)
 				g.newTiles()
-				g.sendToAllClients(MsgStart, cm.cInfo.toClientChan)
-				cm.cInfo.toClientChan <- FromGameMsg{MsgStart, g.info}
+				g.sendToAllClients(MsgStart)
 				g.isRunning = true
 			case MsgNewTiles:
 				if !g.isRunning {
@@ -282,8 +283,8 @@ func (g *Game) runGame() {
 				cm.cInfo.newTilesChan <- m
 			case MsgGameOver:
 				//TODO: get scores to determine a winner
-				g.sendToAllClients(MsgGameOver, cm.cInfo.toClientChan)
-				g.hearFromAllClients(MsgOK, cm.cInfo.toClientChan)
+				g.sendToAllClients(MsgGameOver)
+				g.hearFromAllClients(MsgOK)
 				g.isRunning = false
 			case MsgExit:
 				delete(g.clientChans, cm.cInfo.toClientChan)
