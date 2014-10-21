@@ -47,10 +47,11 @@ function createOverlayDiv(parentDiv) {
   return overlayDiv;
 }
 
-function createButton(text, parentDiv) {
+function createButton(id, text, parentDiv) {
   var button = document.createElement("button");
   var textNode = document.createTextNode(text);
   button.appendChild(textNode);
+  button.id = id;
   if (parentDiv) {
     parentDiv.appendChild(button);
   }

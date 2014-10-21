@@ -10,11 +10,11 @@ function GameManager(size, startTiles) {
 
 // Setup game.
 GameManager.prototype.setup = function() {
+  this.addGameButtons();
   this.tray = new Tray(this);
   this.borderDiv = createDiv("border", this.div);
   resizeDiv(this.borderDiv, vec(1, this.cellSize/2));
   this.grid = new Grid(this, vec(this.size, this.size));
-  this.addButtonHandlers(this);
 
   // Create ghost tile and hide it.
   this.ghostTile = new Tile("", this, this.tray);
@@ -27,15 +27,49 @@ GameManager.prototype.setup = function() {
   // Join game and End game overlay divs.
   this.joinGameDiv = createOverlayDiv(document.body);
   this.populateJoinGameDiv();
+  this.startGameDiv = createOverlayDiv(document.body);
+  this.populateStartGameDiv();
   this.endGameDiv = createOverlayDiv(document.body);
 }
 
-GameManager.prototype.populateJoinGameDiv = function() {
-  var button = createButton("Join Game", this.joinGameDiv)
+// Create and add onclick handlers to various game buttons
+GameManager.prototype.addGameButtons = function() {
+  var button = createButton("reset", "Reset Tiles", this.div);
   button.onclick = function() {
+    gamemanager.grid.sendAllTilesToTray()
+  };
+  var button = createButton("addTile", "+1 Tile", this.div);
+  button.onclick = function() {
+    gamemanager.requestNewTile()
+  };
+  var button = createButton("reload", "New Game", this.div);
+  button.onclick = function() {
+    gamemanager.reload();
+  };
+  var button = createButton("verify", "Verify", this.div);
+  button.onclick = function() {
+    gamemanager.verify();
+  };
+}
+
+// Create div where users will press joinGame button.
+GameManager.prototype.populateJoinGameDiv = function() {
+  var button = createButton("joinGame", "Join Game", this.joinGameDiv);
+  button.onclick = function() {
+    gamemanager.joinGame();
     hideDiv(gamemanager.joinGameDiv);
+    showDiv(gamemanager.startGameDiv);
   };
   showDiv(gamemanager.joinGameDiv);
+}
+
+// Create div where users will press startGame button.
+GameManager.prototype.populateStartGameDiv = function() {
+  var button = createButton("startGame", "Start Game", this.startGameDiv);
+  button.onclick = function() {
+    gamemanager.requestTiles();
+    hideDiv(gamemanager.startGameDiv);
+  };
 }
 
 // Add a list of tiles.
@@ -130,25 +164,6 @@ GameManager.prototype.displayScore = function(score) {
   } else {
     setMessages("Board is incomplete: score of " + score["Score"]);
   }
-}
-
-// Add onclick handlers to the various game buttons
-GameManager.prototype.addButtonHandlers = function() {
-  document.getElementById("reset").onclick = function() {
-    gamemanager.grid.sendAllTilesToTray()
-  };
-  document.getElementById("add_tile").onclick = function() {
-    gamemanager.requestNewTile()
-  };
-  document.getElementById("reload").onclick = function() {
-    gamemanager.reload();
-  };
-  document.getElementById("joinGame").onclick = function() {
-    gamemanager.joinGame();
-  };
-  document.getElementById("verify").onclick = function() {
-    gamemanager.verify();
-  };
 }
 
 function websocketHandleMessage(type, data, responseFunc) {
