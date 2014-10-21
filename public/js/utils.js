@@ -38,6 +38,34 @@ function createDiv(className, parentDiv) {
   return div;
 }
 
+// Create a div the size of the window and hide it.
+function createOverlayDiv(parentDiv) {
+  overlayDiv = createDiv("overlay", parentDiv);
+  moveDiv(overlayDiv, vec(0, 0));
+  sizeToWindow(overlayDiv);
+  overlayDiv.classList.add('hidden');
+  return overlayDiv;
+}
+
+function createButton(text, parentDiv) {
+  var button = document.createElement("button");
+  var textNode = document.createTextNode(text);
+  button.appendChild(textNode);
+  if (parentDiv) {
+    parentDiv.appendChild(button);
+  }
+  return button;
+}
+
+function hideDiv(div) {
+  div.classList.add('hidden');
+}
+
+function showDiv(div) {
+  div.classList.remove('hidden');
+}
+
+// Move the given div to the given position.
 // Move the given div to the given position.
 function moveDiv(div, position) {
   div.style.left = position.x;
@@ -55,6 +83,12 @@ function moveTileDivRelative(div, position, pdiv) {
 function resizeDiv(div, dimensions) {
   div.style.width = dimensions.x;
   div.style.height = dimensions.y;
+}
+
+// Resize the given div to the window's dimensions.
+function sizeToWindow(div) {
+  div.style.width = window.innerWidth;
+  div.style.height = window.innerHeight;
 }
 
 // Get the top-left position of the given div.

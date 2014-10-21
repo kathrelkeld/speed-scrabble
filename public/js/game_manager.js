@@ -5,7 +5,7 @@ function GameManager(size, startTiles) {
   this.cellSize = 48;
   this.div = document.getElementById('gameboard');
 
-  this.setup()
+  this.setup();
 }
 
 // Setup game.
@@ -15,15 +15,27 @@ GameManager.prototype.setup = function() {
   resizeDiv(this.borderDiv, vec(1, this.cellSize/2));
   this.grid = new Grid(this, vec(this.size, this.size));
   this.addButtonHandlers(this);
-  //this.requestTiles();
 
   // Create ghost tile and hide it.
   this.ghostTile = new Tile("", this, this.tray);
   removeDiv(this.ghostTile.div);
   this.ghostTile.div = createDiv("ghost", this.div);
   resizeDiv(this.ghostTile.div, vec(this.cellSize, this.cellSize));
-  this.ghostTile.div.classList.add('hidden');
-  console.log("Finished setting up game!")
+  hideDiv(this.ghostTile.div);
+  console.log("Finished setting up game!");
+
+  // Join game and End game overlay divs.
+  this.joinGameDiv = createOverlayDiv(document.body);
+  this.populateJoinGameDiv();
+  this.endGameDiv = createOverlayDiv(document.body);
+}
+
+GameManager.prototype.populateJoinGameDiv = function() {
+  var button = createButton("Join Game", this.joinGameDiv)
+  button.onclick = function() {
+    hideDiv(gamemanager.joinGameDiv);
+  };
+  showDiv(gamemanager.joinGameDiv);
 }
 
 // Add a list of tiles.

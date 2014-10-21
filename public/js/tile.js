@@ -35,7 +35,7 @@ Tile.prototype.mouseDown = function(e) {
   this.div.classList.add('moving');
   window.addEventListener('mousemove', this.moveListener);
   window.addEventListener('mouseup', this.upListener);
-  this.game.ghostTile.div.classList.remove('hidden');
+  showDiv(this.game.ghostTile.div);
   this.game.moveGhostTo(this.game.ghostTile, getDivCenter(this.div));
 }
 
@@ -55,7 +55,7 @@ Tile.prototype.mouseUp = function(e) {
 
   // Dispose of ghost tile.
   this.game.ghostTile.remove();
-  this.game.ghostTile.div.classList.add('hidden');
+  hideDiv(this.game.ghostTile.div);
   this.div.classList.remove('moving');
 
   // Try to place tile where the center of this tile is.

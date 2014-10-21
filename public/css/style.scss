@@ -42,8 +42,7 @@ body {
   z-index: 10;
 
   &.hidden {
-    z-index: 0;
-    background-color: rgba(0, 0, 0, 0.0);
+    display: none;
   }
 }
 
@@ -56,5 +55,15 @@ body {
   &.highlighted {
     z-index: 8;
     border: 3px solid #FFFF00;
+  }
+}
+
+.overlay {
+	background-color: white;
+  position: absolute;
+  z-index: 20;
+
+  &.hidden {
+    display: none;
   }
 }
