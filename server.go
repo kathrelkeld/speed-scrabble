@@ -89,7 +89,7 @@ func (c *Client) handleMsgStart() {
 	c.newTiles(tiles)
 }
 
-func (c *Client) handleSocketMsg(m *SocketMsg) error {
+func (c *Client) handleSocketMsg(m *SocketMsg) int {
 	switch m.Type {
 	case MsgJoinGame:
 		newGameChan <- GameRequest{MsgGlobal, c.info}
@@ -100,7 +100,7 @@ func (c *Client) handleSocketMsg(m *SocketMsg) error {
 	case MsgStart:
 		if !c.validGame {
 			log.Println("Not a valid game to start!")
-			return nil
+			return 1
 		}
 		c.toGameChan <- FromClientMsg{MsgStart, c.info}
 		//TODO: handle MsgError
@@ -122,18 +122,20 @@ func (c *Client) handleSocketMsg(m *SocketMsg) error {
 		//} else {
 		c.sendSocketMsg(MsgScore, score)
 		c.toGameChan <- FromClientMsg{MsgGameOver, c.info}
+		_ = <- c.info.toClientChan
+		c.toGameChan <- FromClientMsg{MsgOK, c.info}
 		//}
 	case MsgSendBoard:
 		score := c.handleSendBoard(m.Data)
 		c.sendSocketMsg(MsgScore, score)
 	case MsgExit:
 		c.toGameChan <- FromClientMsg{MsgExit, c.info}
-		//return
+		return 1
 	}
-	return nil
+	return 0
 }
 
-func (c *Client) handleFromGameMsg(m *FromGameMsg) error {
+func (c *Client) handleFromGameMsg(m *FromGameMsg) int {
 	switch m.typ {
 	case MsgNewGame:
 		c.handleMsgStart()
@@ -141,7 +143,7 @@ func (c *Client) handleFromGameMsg(m *FromGameMsg) error {
 		c.sendSocketMsg(MsgSendBoard, nil)
 		c.toGameChan <- FromClientMsg{MsgOK, c.info}
 	}
-	return nil
+	return 0
 }
 
 func (c *Client) runClient() {
@@ -151,12 +153,12 @@ func (c *Client) runClient() {
 	for {
 		select {
 		case m := <-c.socketChan:
-			if c.handleSocketMsg(&m) != nil {
+			if c.handleSocketMsg(&m) != 0 {
 				return
 			}
 		case gm := <-c.info.toClientChan:
 			log.Println("Game told client:", gm.typ)
-			if c.handleFromGameMsg(&gm) != nil {
+			if c.handleFromGameMsg(&gm) != 0 {
 				return
 			}
 		}
