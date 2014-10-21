@@ -77,6 +77,70 @@ func (c *Client) handleSendBoard(raw *json.RawMessage) Score {
 	return board.scoreBoard(c)
 }
 
+func (c *Client) handlePageMessage(m *SocketMsg) error {
+	switch m.Type {
+	case MsgJoinGame:
+		newGameChan <- GameRequest{MsgGlobal, c.info}
+		gameInfo := <-c.info.assignGameChan
+		c.toGameChan = gameInfo.toGameChan
+		c.validGame = true
+		c.sendSocketMsg(MsgOK, nil)
+	case MsgNewTiles:
+		c.toGameChan <- FromClientMsg{MsgStart, c.info}
+		//_ = <- c.info.toClientChan
+		//c.toGameChan <- FromClientMsg{MsgStart, c.info}
+		//tileMsg := <-c.info.newTilesChan
+		//TODO: check for error
+		//tiles := tileMsg.tiles
+		//log.Println("Sending tiles:", tiles)
+		//c.sendSocketMsg(MsgNewTiles, tiles)
+		//c.newTiles(tiles)
+	case MsgAddTile:
+		c.toGameChan <- FromClientMsg{MsgAddTile, c.info}
+		tileMsg := <-c.info.newTilesChan
+		tile := tileMsg.tiles[0]
+		// TODO: send out of tiles error
+		log.Println("Sending tile:", tile)
+		c.sendSocketMsg(MsgAddTile, tile)
+		c.addTile(tile)
+	case MsgVerify:
+		score := c.handleSendBoard(m.Data)
+		//if !score.Valid {
+		//c.sendSocketMsg(MsgError, score)
+		//} else {
+		c.sendSocketMsg(MsgScore, score)
+		c.toGameChan <- FromClientMsg{MsgGameOver, c.info}
+		//}
+	case MsgSendBoard:
+		score := c.handleSendBoard(m.Data)
+		c.sendSocketMsg(MsgScore, score)
+	case MsgExit:
+		c.toGameChan <- FromClientMsg{MsgExit, c.info}
+		//return
+	}
+	return nil
+}
+
+func (c *Client) handleClientMessage(m *FromGameMsg) error {
+	switch m.typ {
+	case MsgNewGame:
+		//TODO: tell playter that game will start
+		c.toGameChan <- FromClientMsg{MsgStart, c.info}
+	case MsgStart:
+		c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
+		tileMsg := <-c.info.newTilesChan
+		//TODO: check for error
+		tiles := tileMsg.tiles
+		log.Println("Sending tiles:", tiles)
+		c.sendSocketMsg(MsgNewTiles, tiles)
+		c.newTiles(tiles)
+	case MsgGameOver:
+		c.sendSocketMsg(MsgSendBoard, nil)
+		c.toGameChan <- FromClientMsg{MsgOK, c.info}
+	}
+	return nil
+}
+
 func (c *Client) runClient() {
 	defer c.onRunClientExit()
 	c.running = true
@@ -84,63 +148,13 @@ func (c *Client) runClient() {
 	for {
 		select {
 		case m := <-c.socketChan:
-			switch m.Type {
-			case MsgJoinGame:
-				newGameChan <- GameRequest{MsgGlobal, c.info}
-				gameInfo := <-c.info.assignGameChan
-				c.toGameChan = gameInfo.toGameChan
-				c.validGame = true
-				c.sendSocketMsg(MsgOK, nil)
-			case MsgNewTiles:
-				c.toGameChan <- FromClientMsg{MsgStart, c.info}
-				//_ = <- c.info.toClientChan
-				//c.toGameChan <- FromClientMsg{MsgStart, c.info}
-				//tileMsg := <-c.info.newTilesChan
-				//TODO: check for error
-				//tiles := tileMsg.tiles
-				//log.Println("Sending tiles:", tiles)
-				//c.sendSocketMsg(MsgNewTiles, tiles)
-				//c.newTiles(tiles)
-			case MsgAddTile:
-				c.toGameChan <- FromClientMsg{MsgAddTile, c.info}
-				tileMsg := <-c.info.newTilesChan
-				tile := tileMsg.tiles[0]
-				// TODO: send out of tiles error
-				log.Println("Sending tile:", tile)
-				c.sendSocketMsg(MsgAddTile, tile)
-				c.addTile(tile)
-			case MsgVerify:
-				score := c.handleSendBoard(m.Data)
-				//if !score.Valid {
-				//c.sendSocketMsg(MsgError, score)
-				//} else {
-				c.sendSocketMsg(MsgScore, score)
-				c.toGameChan <- FromClientMsg{MsgGameOver, c.info}
-				//}
-			case MsgSendBoard:
-				score := c.handleSendBoard(m.Data)
-				c.sendSocketMsg(MsgScore, score)
-			case MsgExit:
-				c.toGameChan <- FromClientMsg{MsgExit, c.info}
+			if c.handlePageMessage(&m) != nil {
 				return
 			}
 		case gm := <-c.info.toClientChan:
 			log.Println("Game told client:", gm.typ)
-			switch gm.typ {
-			case MsgNewGame:
-				//TODO: tell playter that game will start
-				c.toGameChan <- FromClientMsg{MsgStart, c.info}
-			case MsgStart:
-				c.toGameChan <- FromClientMsg{MsgNewTiles, c.info}
-				tileMsg := <-c.info.newTilesChan
-				//TODO: check for error
-				tiles := tileMsg.tiles
-				log.Println("Sending tiles:", tiles)
-				c.sendSocketMsg(MsgNewTiles, tiles)
-				c.newTiles(tiles)
-			case MsgGameOver:
-				c.sendSocketMsg(MsgSendBoard, nil)
-				c.toGameChan <- FromClientMsg{MsgOK, c.info}
+			if c.handleClientMessage(&gm) != nil {
+				return
 			}
 		}
 	}

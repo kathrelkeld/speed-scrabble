@@ -56,5 +56,5 @@ func TestSynchonousStart(t *testing.T) {
 	m, _ := newSocketMsg(MsgJoinGame, nil)
 	connA.socketMsgChan <- m
 	connB.socketMsgChan <- m
-	m, _ := newSocketMsg(MsgStart)
+	m, _ = newSocketMsg(MsgStart, nil)
 }
