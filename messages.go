@@ -48,9 +48,7 @@ func (mt MessageType) MarshalJSON() ([]byte, error) {
 	if s == "" {
 		panic("No such message string to marshal!")
 	}
-	j, err := json.Marshal(s)
-	return j, err
-	//return json.Marshal(s)
+	return json.Marshal(s)
 }
 
 func (mt *MessageType) UnmarshalJSON(b []byte) error {
@@ -97,23 +95,13 @@ func newSocketMsg(t MessageType, d interface{}) (SocketMsg, error) {
 type FromClientMsg struct {
 	typ   MessageType
 	cInfo ClientInfo
+	data  interface{}
 }
 
 type FromGameMsg struct {
 	typ   MessageType
 	gInfo GameInfo
-}
-
-type ReqTileMsg struct {
-	typ   MessageType
-	index int
-	cInfo ClientInfo
-}
-
-type NewTileMsg struct {
-	typ   MessageType
-	tiles Tiles
-	gInfo GameInfo
+	data  interface{}
 }
 
 type WebSocketConn interface {

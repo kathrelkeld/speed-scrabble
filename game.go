@@ -5,7 +5,7 @@ import (
 )
 
 type Game struct {
-	tiles       Tiles
+	tiles       []Tile
 	clientChans map[chan FromGameMsg]bool
 	isRunning   bool
 	info        GameInfo
@@ -39,7 +39,7 @@ func (g *Game) newTiles() {
 type Client struct {
 	conn        WebSocketConn
 	socketChan  chan SocketMsg
-	tilesServed Tiles
+	tilesServed []Tile
 	maxScore    int
 	toGameChan  chan FromClientMsg
 	validGame   bool
@@ -50,7 +50,6 @@ type Client struct {
 type ClientInfo struct {
 	tilesServedCount int
 	toClientChan     chan FromGameMsg
-	newTilesChan     chan NewTileMsg
 	assignGameChan   chan GameInfo
 }
 
@@ -61,7 +60,6 @@ func makeNewClient() *Client {
 	c.running = false
 	c.info = ClientInfo{}
 	c.info.toClientChan = make(chan FromGameMsg)
-	c.info.newTilesChan = make(chan NewTileMsg)
 	c.info.assignGameChan = make(chan GameInfo)
 	return &c
 }
@@ -69,7 +67,6 @@ func makeNewClient() *Client {
 func (c *Client) cleanup() {
 	close(c.socketChan)
 	close(c.info.toClientChan)
-	close(c.info.newTilesChan)
 	close(c.info.assignGameChan)
 	c.running = false
 }
@@ -93,7 +90,7 @@ func (c *Client) getTilesServedCount() int {
 	return c.info.tilesServedCount
 }
 
-func (c *Client) getAllTilesServed() Tiles {
+func (c *Client) getAllTilesServed() []Tile {
 	return c.tilesServed[:c.info.tilesServedCount]
 }
 
@@ -110,10 +107,8 @@ func (t Tile) String() string {
 	return t.Value
 }
 
-type Tiles []Tile
-
-func newTiles() Tiles {
-	var tiles Tiles
+func newTiles() []Tile {
+	var tiles []Tile
 	for k, v := range freqMap {
 		for j := 0; j < v; j++ {
 			tile := Tile{Value: k, Points: pointValues[k]}
