@@ -227,9 +227,15 @@ func receiveClientMessages(gameChan chan ClientMessage,
 	}
 }
 
-func (g *Game) sendGameStatus(clientChan chan FromGameMsg) {
-	status := GameStatus{g.name}
-	clientChan <- FromGameMsg{MsgGameStatus, g, status}
+func (g *Game) sendGameStatus() {
+	var names []string
+	for c := range g.clients {
+		names = append(names, c.Name)
+	}
+	status := GameStatus{g.name, names}
+	for c := range g.clients {
+		c.ToClientChan <- FromGameMsg{MsgGameStatus, g, status}
+	}
 }
 
 func (g *Game) allClientsTrue() bool {
@@ -267,6 +273,7 @@ func (g *Game) runGame() {
 		case c := <-g.AddPlayerChan:
 			log.Println("runGame: Adding client to game")
 			g.clients[c] = false
+			g.sendGameStatus()
 		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {

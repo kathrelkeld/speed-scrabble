@@ -107,7 +107,8 @@ type FromGameMsg struct {
 }
 
 type GameStatus struct {
-	name string
+	GameName    string
+	PlayerNames []string
 }
 
 type WebSocketConn interface {
