@@ -73,8 +73,8 @@ func (mt MessageType) String() string {
 }
 
 type GameRequest struct {
-	Type  MessageType
-	cInfo ClientInfo
+	Type MessageType
+	c    *Client
 }
 
 type SocketMsg struct {
@@ -95,15 +95,15 @@ func newSocketMsg(t MessageType, d interface{}) (SocketMsg, error) {
 }
 
 type FromClientMsg struct {
-	typ   MessageType
-	cInfo ClientInfo
-	data  interface{}
+	typ  MessageType
+	c    *Client
+	data interface{}
 }
 
 type FromGameMsg struct {
-	typ   MessageType
-	gInfo GameInfo
-	data  interface{}
+	typ  MessageType
+	g    *Game
+	data interface{}
 }
 
 type GameStatus struct {

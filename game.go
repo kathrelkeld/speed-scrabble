@@ -9,12 +9,10 @@ type Game struct {
 	tiles       []Tile
 	clientChans map[chan FromGameMsg]bool
 	isRunning   bool
-	info        GameInfo
-}
 
-type GameInfo struct {
-	toGameChan    chan FromClientMsg
-	addPlayerChan chan ClientInfo
+	//Accessible by other routines; Not allowed to change.
+	ToGameChan    chan FromClientMsg
+	AddPlayerChan chan *Client
 }
 
 func makeNewGame() *Game {
@@ -22,15 +20,14 @@ func makeNewGame() *Game {
 	g.tiles = newTiles()
 	g.isRunning = false
 	g.clientChans = make(map[chan FromGameMsg]bool)
-	g.info = GameInfo{}
-	g.info.toGameChan = make(chan FromClientMsg)
-	g.info.addPlayerChan = make(chan ClientInfo)
+	g.ToGameChan = make(chan FromClientMsg)
+	g.AddPlayerChan = make(chan *Client)
 	return &g
 }
 
 func (g *Game) cleanup() {
-	close(g.info.toGameChan)
-	close(g.info.addPlayerChan)
+	close(g.ToGameChan)
+	close(g.AddPlayerChan)
 }
 
 func (g *Game) newTiles() {
@@ -45,13 +42,12 @@ type Client struct {
 	toGameChan  chan FromClientMsg
 	validGame   bool
 	running     bool
-	info        ClientInfo
-}
 
-type ClientInfo struct {
-	tilesServedCount int
-	toClientChan     chan FromGameMsg
-	assignGameChan   chan GameInfo
+	//Accessible by other routines; Not allowed to change.
+	Name             string
+	TilesServedCount int
+	ToClientChan     chan FromGameMsg
+	AssignGameChan   chan *Game
 }
 
 func makeNewClient() *Client {
@@ -59,21 +55,20 @@ func makeNewClient() *Client {
 	c.socketChan = make(chan SocketMsg)
 	c.validGame = false
 	c.running = false
-	c.info = ClientInfo{}
-	c.info.toClientChan = make(chan FromGameMsg)
-	c.info.assignGameChan = make(chan GameInfo)
+	c.ToClientChan = make(chan FromGameMsg)
+	c.AssignGameChan = make(chan *Game)
 	return &c
 }
 
 func (c *Client) cleanup() {
 	close(c.socketChan)
-	close(c.info.toClientChan)
-	close(c.info.assignGameChan)
+	close(c.ToClientChan)
+	close(c.AssignGameChan)
 	c.running = false
 }
 
 func (c *Client) newTiles(t []Tile) {
-	c.info.tilesServedCount = len(t)
+	c.TilesServedCount = len(t)
 	c.tilesServed = t
 	c.maxScore = 0
 	for _, elt := range t {
@@ -83,16 +78,16 @@ func (c *Client) newTiles(t []Tile) {
 
 func (c *Client) addTile(t Tile) {
 	c.tilesServed = append(c.tilesServed, t)
-	c.info.tilesServedCount += 1
+	c.TilesServedCount += 1
 	c.maxScore += t.Points
 }
 
 func (c *Client) getTilesServedCount() int {
-	return c.info.tilesServedCount
+	return c.TilesServedCount
 }
 
 func (c *Client) getAllTilesServed() []Tile {
-	return c.tilesServed[:c.info.tilesServedCount]
+	return c.tilesServed[:c.TilesServedCount]
 }
 
 func (c *Client) getMaxScore() int {

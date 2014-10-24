@@ -73,7 +73,7 @@ func (c *Client) readSocketMsgs() {
 }
 
 func (c *Client) onRunClientExit() {
-	c.toGameChan <- FromClientMsg{MsgExit, c.info, nil}
+	c.toGameChan <- FromClientMsg{MsgExit, c, nil}
 	c.cleanup()
 }
 
@@ -88,10 +88,10 @@ func (c *Client) handleSendBoard(raw *json.RawMessage) Score {
 }
 
 func (c *Client) handleMsgStart() {
-	c.toGameChan <- FromClientMsg{MsgStart, c.info, nil}
-	_ = <-c.info.toClientChan
-	c.toGameChan <- FromClientMsg{MsgNewTiles, c.info, nil}
-	tileMsg := <-c.info.toClientChan
+	c.toGameChan <- FromClientMsg{MsgStart, c, nil}
+	_ = <-c.ToClientChan
+	c.toGameChan <- FromClientMsg{MsgNewTiles, c, nil}
+	tileMsg := <-c.ToClientChan
 	//TODO: handle MsgError
 	tiles := tileMsg.data.([]Tile)
 	log.Println("Sending tiles:", tiles)
@@ -102,11 +102,11 @@ func (c *Client) handleMsgStart() {
 func (c *Client) handleSocketMsg(m *SocketMsg) int {
 	switch m.Type {
 	case MsgJoinGame:
-		newGameChan <- GameRequest{MsgGlobal, c.info}
-		gameInfo := <-c.info.assignGameChan
+		newGameChan <- GameRequest{MsgGlobal, c}
+		gameInfo := <-c.AssignGameChan
 		name := unmarshalString(m.Data)
 		log.Println("Client name is:", name)
-		c.toGameChan = gameInfo.toGameChan
+		c.toGameChan = gameInfo.ToGameChan
 		c.validGame = true
 		c.sendSocketMsg(MsgOK, nil)
 	case MsgStart:
@@ -114,13 +114,13 @@ func (c *Client) handleSocketMsg(m *SocketMsg) int {
 			log.Println("Not a valid game to start!")
 			return 1
 		}
-		c.toGameChan <- FromClientMsg{MsgStart, c.info, nil}
+		c.toGameChan <- FromClientMsg{MsgStart, c, nil}
 		//TODO: handle MsgError
-		_ = <-c.info.toClientChan
+		_ = <-c.ToClientChan
 		c.handleMsgStart()
 	case MsgAddTile:
-		c.toGameChan <- FromClientMsg{MsgAddTile, c.info, nil}
-		tileMsg := <-c.info.toClientChan
+		c.toGameChan <- FromClientMsg{MsgAddTile, c, nil}
+		tileMsg := <-c.ToClientChan
 		tile := tileMsg.data.(Tile)
 		// TODO: send out of tiles error
 		log.Println("Sending tile:", tile)
@@ -133,15 +133,15 @@ func (c *Client) handleSocketMsg(m *SocketMsg) int {
 		//c.sendSocketMsg(MsgError, score)
 		//} else {
 		c.sendSocketMsg(MsgScore, score)
-		c.toGameChan <- FromClientMsg{MsgGameOver, c.info, nil}
-		_ = <-c.info.toClientChan
-		c.toGameChan <- FromClientMsg{MsgOK, c.info, nil}
+		c.toGameChan <- FromClientMsg{MsgGameOver, c, nil}
+		_ = <-c.ToClientChan
+		c.toGameChan <- FromClientMsg{MsgOK, c, nil}
 		//}
 	case MsgSendBoard:
 		score := c.handleSendBoard(m.Data)
 		c.sendSocketMsg(MsgScore, score)
 	case MsgExit:
-		c.toGameChan <- FromClientMsg{MsgExit, c.info, nil}
+		c.toGameChan <- FromClientMsg{MsgExit, c, nil}
 		return 1
 	}
 	return 0
@@ -155,7 +155,7 @@ func (c *Client) handleFromGameMsg(m *FromGameMsg) int {
 		c.sendSocketMsg(MsgGameStatus, m.data)
 	case MsgGameOver:
 		c.sendSocketMsg(MsgSendBoard, nil)
-		c.toGameChan <- FromClientMsg{MsgOK, c.info, nil}
+		c.toGameChan <- FromClientMsg{MsgOK, c, nil}
 	}
 	return 0
 }
@@ -170,7 +170,7 @@ func (c *Client) runClient() {
 			if c.handleSocketMsg(&m) != 0 {
 				return
 			}
-		case gm := <-c.info.toClientChan:
+		case gm := <-c.ToClientChan:
 			log.Println("Game told client:", gm.typ)
 			if c.handleFromGameMsg(&gm) != 0 {
 				return
@@ -204,8 +204,8 @@ func addAPlayerToAGame() {
 	for {
 		r := <-newGameChan
 		log.Println("newGameChan: Adding client to game")
-		globalGame.info.addPlayerChan <- r.cInfo
-		r.cInfo.assignGameChan <- globalGame.info
+		globalGame.AddPlayerChan <- r.c
+		r.c.AssignGameChan <- globalGame
 	}
 }
 
@@ -230,7 +230,7 @@ func receiveClientMessages(gameChan chan ClientMessage,
 
 func (g *Game) sendGameStatus(clientChan chan FromGameMsg) {
 	status := GameStatus{g.name}
-	clientChan <- FromGameMsg{MsgGameStatus, g.info, status}
+	clientChan <- FromGameMsg{MsgGameStatus, g, status}
 }
 
 func (g *Game) allClientsTrue() bool {
@@ -244,7 +244,7 @@ func (g *Game) allClientsTrue() bool {
 func (g *Game) sendToAllClients(t MessageType) {
 	log.Println("Sending to all clients.")
 	for key := range g.clientChans {
-		key <- FromGameMsg{t, g.info, nil}
+		key <- FromGameMsg{t, g, nil}
 	}
 }
 
@@ -254,27 +254,26 @@ func (g *Game) hearFromAllClients(t MessageType) {
 		g.clientChans[key] = false
 	}
 	for !g.allClientsTrue() {
-		cm := <-g.info.toGameChan
+		cm := <-g.ToGameChan
 		if cm.typ != t {
-			cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info, nil}
+			cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
 		}
-		g.clientChans[cm.cInfo.toClientChan] = true
+		g.clientChans[cm.c.ToClientChan] = true
 	}
 }
 
 func (g *Game) runGame() {
 	for {
 		select {
-		case clientInfo := <-g.info.addPlayerChan:
+		case c := <-g.AddPlayerChan:
 			log.Println("runGame: Adding client to game")
-			g.clientChans[clientInfo.toClientChan] = false
-			//client.gameChan <- MessageType("ok")
-		case cm := <-g.info.toGameChan:
+			g.clientChans[c.ToClientChan] = false
+		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {
 			case MsgStart:
 				if g.isRunning { //Game is already running!
-					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info, nil}
+					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
 					continue
 				}
 				g.sendToAllClients(MsgNewGame)
@@ -284,31 +283,31 @@ func (g *Game) runGame() {
 				g.isRunning = true
 			case MsgNewTiles:
 				if !g.isRunning {
-					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info, nil}
+					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
 					continue
 				}
 				//TODO: handle confirm from all games
-				m := FromGameMsg{MsgOK, g.info, g.tiles[:12]}
-				cm.cInfo.toClientChan <- m
+				m := FromGameMsg{MsgOK, g, g.tiles[:12]}
+				cm.c.ToClientChan <- m
 			case MsgAddTile:
 				if !g.isRunning {
-					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info, nil}
+					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
 					continue
 				}
-				if cm.cInfo.tilesServedCount >= len(g.tiles) {
-					cm.cInfo.toClientChan <- FromGameMsg{MsgError, g.info, nil}
+				if cm.c.TilesServedCount >= len(g.tiles) {
+					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
 					continue
 				}
-				m := FromGameMsg{MsgOK, g.info,
-					g.tiles[cm.cInfo.tilesServedCount]}
-				cm.cInfo.toClientChan <- m
+				m := FromGameMsg{MsgOK, g,
+					g.tiles[cm.c.TilesServedCount]}
+				cm.c.ToClientChan <- m
 			case MsgGameOver:
 				//TODO: get scores to determine a winner
 				g.sendToAllClients(MsgGameOver)
 				g.hearFromAllClients(MsgOK)
 				g.isRunning = false
 			case MsgExit:
-				delete(g.clientChans, cm.cInfo.toClientChan)
+				delete(g.clientChans, cm.c.ToClientChan)
 				log.Println("runGame: Removing client from game")
 				if len(g.clientChans) == 0 {
 					g.isRunning = false
