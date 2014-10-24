@@ -39,8 +39,9 @@ function createDiv(className, parentDiv) {
 }
 
 // Create a div the size of the window and hide it.
-function createOverlayDiv(parentDiv) {
+function createOverlayDiv(id, parentDiv) {
   overlayDiv = createDiv("overlay", parentDiv);
+  overlayDiv.id = id;
   moveDiv(overlayDiv, vec(0, 0));
   sizeToWindow(overlayDiv);
   overlayDiv.classList.add('hidden');

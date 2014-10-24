@@ -25,9 +25,9 @@ GameManager.prototype.setup = function() {
   console.log("Finished setting up game!");
 
   // Join game and End game overlay divs.
-  this.joinGameDiv = createOverlayDiv(document.body);
-  this.startGameDiv = createOverlayDiv(document.body);
-  this.endGameDiv = createOverlayDiv(document.body);
+  this.joinGameDiv = createOverlayDiv("joinGame", document.body);
+  this.startGameDiv = createOverlayDiv("startGame", document.body);
+  this.endGameDiv = createOverlayDiv("endGame", document.body);
   this.populateOverlayDivs();
 }
 
@@ -66,6 +66,8 @@ GameManager.prototype.populateOverlayDivs = function() {
     gamemanager.requestTiles();
     hideDiv(gamemanager.startGameDiv);
   };
+  gameStatusDiv = createDiv("gameStatus", this.startGameDiv);
+  gameStatusDiv.id = "gameStatus";
 }
 
 // Add a list of tiles.
@@ -170,6 +172,7 @@ function websocketHandleMessage(type, data, responseFunc) {
   }
   switch(type) {
     case "start":
+      hideDiv(gamemanager.startGameDiv);
       gamemanager.grid.removeAllTiles();
       gamemanager.tray.removeAllTiles();
       gamemanager.addNewLetters(data);
@@ -185,6 +188,10 @@ function websocketHandleMessage(type, data, responseFunc) {
       websocketSendAndGet("sendBoard", tileValues, function() {
         //TODO: handle error
       });
+      break;
+    case "gameStatus":
+      console.log(data)
+      document.getElementById("gameStatus").innerHTML = data["PlayerNames"];
       break;
   }
 }
