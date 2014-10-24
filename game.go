@@ -5,10 +5,10 @@ import (
 )
 
 type Game struct {
-	name        string
-	tiles       []Tile
-	clientChans map[chan FromGameMsg]bool
-	isRunning   bool
+	name      string
+	tiles     []Tile
+	clients   map[*Client]bool
+	isRunning bool
 
 	//Accessible by other routines; Not allowed to change.
 	ToGameChan    chan FromClientMsg
@@ -19,7 +19,7 @@ func makeNewGame() *Game {
 	g := Game{}
 	g.tiles = newTiles()
 	g.isRunning = false
-	g.clientChans = make(map[chan FromGameMsg]bool)
+	g.clients = make(map[*Client]bool)
 	g.ToGameChan = make(chan FromClientMsg)
 	g.AddPlayerChan = make(chan *Client)
 	return &g

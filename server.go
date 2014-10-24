@@ -102,11 +102,10 @@ func (c *Client) handleMsgStart() {
 func (c *Client) handleSocketMsg(m *SocketMsg) int {
 	switch m.Type {
 	case MsgJoinGame:
+		c.Name = unmarshalString(m.Data)
 		newGameChan <- GameRequest{MsgGlobal, c}
-		gameInfo := <-c.AssignGameChan
-		name := unmarshalString(m.Data)
-		log.Println("Client name is:", name)
-		c.toGameChan = gameInfo.ToGameChan
+		game := <-c.AssignGameChan
+		c.toGameChan = game.ToGameChan
 		c.validGame = true
 		c.sendSocketMsg(MsgOK, nil)
 	case MsgStart:
@@ -235,7 +234,7 @@ func (g *Game) sendGameStatus(clientChan chan FromGameMsg) {
 
 func (g *Game) allClientsTrue() bool {
 	result := true
-	for _, value := range g.clientChans {
+	for _, value := range g.clients {
 		result = result && value
 	}
 	return result
@@ -243,22 +242,22 @@ func (g *Game) allClientsTrue() bool {
 
 func (g *Game) sendToAllClients(t MessageType) {
 	log.Println("Sending to all clients.")
-	for key := range g.clientChans {
-		key <- FromGameMsg{t, g, nil}
+	for c := range g.clients {
+		c.ToClientChan <- FromGameMsg{t, g, nil}
 	}
 }
 
 func (g *Game) hearFromAllClients(t MessageType) {
 	log.Println("Hearing from all clients.")
-	for key := range g.clientChans {
-		g.clientChans[key] = false
+	for c := range g.clients {
+		g.clients[c] = false
 	}
 	for !g.allClientsTrue() {
 		cm := <-g.ToGameChan
 		if cm.typ != t {
 			cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
 		}
-		g.clientChans[cm.c.ToClientChan] = true
+		g.clients[cm.c] = true
 	}
 }
 
@@ -267,7 +266,7 @@ func (g *Game) runGame() {
 		select {
 		case c := <-g.AddPlayerChan:
 			log.Println("runGame: Adding client to game")
-			g.clientChans[c.ToClientChan] = false
+			g.clients[c] = false
 		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.typ)
 			switch cm.typ {
@@ -307,9 +306,9 @@ func (g *Game) runGame() {
 				g.hearFromAllClients(MsgOK)
 				g.isRunning = false
 			case MsgExit:
-				delete(g.clientChans, cm.c.ToClientChan)
+				delete(g.clients, cm.c)
 				log.Println("runGame: Removing client from game")
-				if len(g.clientChans) == 0 {
+				if len(g.clients) == 0 {
 					g.isRunning = false
 				}
 			}
