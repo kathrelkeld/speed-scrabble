@@ -15,6 +15,16 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+func unmarshalString(raw *json.RawMessage) string {
+	var s string
+	err := json.Unmarshal([]byte(*raw), &s)
+	if err != nil {
+		log.Println("error:", err)
+		return ""
+	}
+	return s
+}
+
 func (c *Client) readSocketMsg() (SocketMsg, error) {
 	var m SocketMsg
 	_, p, err := c.conn.ReadMessage()
@@ -94,6 +104,8 @@ func (c *Client) handleSocketMsg(m *SocketMsg) int {
 	case MsgJoinGame:
 		newGameChan <- GameRequest{MsgGlobal, c.info}
 		gameInfo := <-c.info.assignGameChan
+		name := unmarshalString(m.Data)
+		log.Println("Client name is:", name)
 		c.toGameChan = gameInfo.toGameChan
 		c.validGame = true
 		c.sendSocketMsg(MsgOK, nil)
@@ -139,6 +151,8 @@ func (c *Client) handleFromGameMsg(m *FromGameMsg) int {
 	switch m.typ {
 	case MsgNewGame:
 		c.handleMsgStart()
+	case MsgGameStatus:
+		c.sendSocketMsg(MsgGameStatus, m.data)
 	case MsgGameOver:
 		c.sendSocketMsg(MsgSendBoard, nil)
 		c.toGameChan <- FromClientMsg{MsgOK, c.info, nil}
@@ -212,6 +226,11 @@ func receiveClientMessages(gameChan chan ClientMessage,
 			gameChan <- ClientMessage{m, clientChan}
 		}
 	}
+}
+
+func (g *Game) sendGameStatus(clientChan chan FromGameMsg) {
+	status := GameStatus{g.name}
+	clientChan <- FromGameMsg{MsgGameStatus, g.info, status}
 }
 
 func (g *Game) allClientsTrue() bool {

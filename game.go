@@ -5,6 +5,7 @@ import (
 )
 
 type Game struct {
+	name        string
 	tiles       []Tile
 	clientChans map[chan FromGameMsg]bool
 	isRunning   bool

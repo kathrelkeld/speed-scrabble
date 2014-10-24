@@ -15,6 +15,7 @@ const (
 	MsgExit
 	MsgConnect
 	MsgJoinGame
+	MsgGameStatus
 	MsgGlobal
 	MsgNewGame
 	MsgStart
@@ -27,20 +28,21 @@ const (
 )
 
 var MessageTypeToString = map[MessageType]string{
-	MsgOK:        "ok",
-	MsgError:     "error",
-	MsgExit:      "exit",
-	MsgConnect:   "connect",
-	MsgJoinGame:  "joinGame",
-	MsgGlobal:    "global",
-	MsgNewGame:   "newGame",
-	MsgStart:     "start",
-	MsgNewTiles:  "newTiles",
-	MsgAddTile:   "addTile",
-	MsgSendBoard: "sendBoard",
-	MsgVerify:    "verify",
-	MsgScore:     "score",
-	MsgGameOver:  "gameOver",
+	MsgOK:         "ok",
+	MsgError:      "error",
+	MsgExit:       "exit",
+	MsgConnect:    "connect",
+	MsgJoinGame:   "joinGame",
+	MsgGameStatus: "gameStatus",
+	MsgGlobal:     "global",
+	MsgNewGame:    "newGame",
+	MsgStart:      "start",
+	MsgNewTiles:   "newTiles",
+	MsgAddTile:    "addTile",
+	MsgSendBoard:  "sendBoard",
+	MsgVerify:     "verify",
+	MsgScore:      "score",
+	MsgGameOver:   "gameOver",
 }
 
 func (mt MessageType) MarshalJSON() ([]byte, error) {
@@ -102,6 +104,10 @@ type FromGameMsg struct {
 	typ   MessageType
 	gInfo GameInfo
 	data  interface{}
+}
+
+type GameStatus struct {
+	name string
 }
 
 type WebSocketConn interface {

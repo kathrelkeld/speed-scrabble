@@ -26,10 +26,9 @@ GameManager.prototype.setup = function() {
 
   // Join game and End game overlay divs.
   this.joinGameDiv = createOverlayDiv(document.body);
-  this.populateJoinGameDiv();
   this.startGameDiv = createOverlayDiv(document.body);
-  this.populateStartGameDiv();
   this.endGameDiv = createOverlayDiv(document.body);
+  this.populateOverlayDivs();
 }
 
 // Create and add onclick handlers to various game buttons
@@ -52,8 +51,8 @@ GameManager.prototype.addGameButtons = function() {
   };
 }
 
-// Create div where users will press joinGame button.
-GameManager.prototype.populateJoinGameDiv = function() {
+GameManager.prototype.populateOverlayDivs = function() {
+  var input = createInput("nameField", "Anon", this.joinGameDiv);
   var button = createButton("joinGame", "Join Game", this.joinGameDiv);
   button.onclick = function() {
     gamemanager.joinGame();
@@ -61,10 +60,7 @@ GameManager.prototype.populateJoinGameDiv = function() {
     showDiv(gamemanager.startGameDiv);
   };
   showDiv(gamemanager.joinGameDiv);
-}
 
-// Create div where users will press startGame button.
-GameManager.prototype.populateStartGameDiv = function() {
   var button = createButton("startGame", "Start Game", this.startGameDiv);
   button.onclick = function() {
     gamemanager.requestTiles();
@@ -132,7 +128,8 @@ GameManager.prototype.reload = function() {
 // Join a game.
 GameManager.prototype.joinGame = function() {
   console.log("Join game!");
-  websocketRequest("joinGame", function() {});
+  var name = document.getElementById("nameField").value;
+  websocketSendAndGet("joinGame", name, function() {});
 }
 
 GameManager.prototype.verify = function() {
