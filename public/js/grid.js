@@ -75,6 +75,7 @@ Grid.prototype.moveHighlight = function(direction) {
 Grid.prototype.removeHighlightedTile = function(exception) {
   var curr = this.getPosition(this.auraPos);
   if (curr != null && curr.value != exception) {
+    this.validateTiles();
     curr.remove();
     this.game.moveTileToTray(curr);
     return true;
@@ -194,6 +195,7 @@ Grid.prototype.removeAllTiles = function() {
 
 // Move all tiles to the tray. 
 Grid.prototype.sendAllTilesToTray = function(grid) {
+  this.validateTiles();
   for (var x = 0; x < this.size.x; x++) {
     for (var y = 0; y < this.size.y; y++) {
       var tile = this.tiles[x][y];
@@ -214,6 +216,7 @@ Grid.prototype.addGhost = function(tile, position) {
 
 // Insert a tile at a given position.
 Grid.prototype.addTile = function(tile, position) {
+  this.validateTiles();
   this.tiles[position.x][position.y] = tile;
   tile.position = position;
   tile.grid = this;
@@ -320,6 +323,37 @@ Grid.prototype.expand = function(direction) {
   }
 }
 
+// Invalidate tiles, given a list of positions from the server.
+Grid.prototype.invalidateTiles = function(positions) {
+  if (gamemanager.showingInvalidTiles == false) {
+    this.validateTiles();
+  }
+  gamemanager.showingInvalidTiles = true;
+  if (positions == null) {
+    return;
+  }
+  for (var i=0; i<positions.length; i++) {
+    var v = vec(positions[i]["X"], positions[i]["Y"]);
+    this.getPosition(v).invalidate();
+  }
+}
+
+// Re-validate all tiles.
+Grid.prototype.validateTiles = function() {
+  if (gamemanager.showingInvalidTiles == false) {
+    return;
+  }
+  gamemanager.showingInvalidTiles = false;
+  for (var x = 0; x < this.size.x; x++) {
+    for (var y = 0; y < this.size.y; y++) {
+      var tile = this.getPosition(vec(x,y));
+      if (tile != null) {
+        tile.validate();
+      }
+    }
+  }
+}
+
 
 function Tray(game) {
   this.game = game;
@@ -333,6 +367,7 @@ function Tray(game) {
 
 // Add a tile, at the index (integer) if given.
 Tray.prototype.addTile = function(tile, index) {
+  gamemanager.grid.validateTiles();
   if (index == null) {
     index = this.tiles.length;
   }

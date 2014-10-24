@@ -63,7 +63,7 @@ function createInput(id, defaultValue, parentDiv) {
   var input = document.createElement("input");
   input.type = "text";
   input.id = id;
-	input.defaultValue = defaultValue;
+  input.defaultValue = defaultValue;
   if (parentDiv) {
     parentDiv.appendChild(input);
   }

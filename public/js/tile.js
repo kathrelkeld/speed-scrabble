@@ -4,6 +4,7 @@ function Tile(tileStruct, game, grid) {
   this.position = vec(0, 0);
   this.value = tileStruct["Value"];
   this.points = tileStruct["Points"];
+  this.valid = true;
   this.div = createDiv('tile', grid.div);
 
   // Customize tile div.
@@ -28,23 +29,44 @@ Tile.prototype.remove = function() {
   this.grid.removeTile(this);
 }
 
+Tile.prototype.invalidate = function() {
+  if (this.valid == false) {
+    return;
+  }
+  this.valid = false;
+  this.div.classList.add("invalid");
+}
+
+Tile.prototype.validate = function() {
+  if (this.valid == true) {
+    return;
+  }
+  this.valid = true;
+  this.div.classList.remove("invalid");
+}
+
 // onMouseDown event handler.  Always active for this tile.
 Tile.prototype.mouseDown = function(e) {
-  this.game.grid.removeHighlight();
+  gamemanager.grid.validateTiles();
+
   this.remove();
   this.div.classList.add('moving');
+
+  this.game.grid.removeHighlight();
+  this.game.moveGhostTo(this.game.ghostTile, getDivCenter(this.div));
+  showDiv(this.game.ghostTile.div);
+
   window.addEventListener('mousemove', this.moveListener);
   window.addEventListener('mouseup', this.upListener);
-  showDiv(this.game.ghostTile.div);
-  this.game.moveGhostTo(this.game.ghostTile, getDivCenter(this.div));
 }
 
 // onMouseMove event handler.  Active only during mouse move.
 Tile.prototype.mouseMove = function(e) {
-  var curr = getDivPos(this.div);
-  moveDiv(this.div, vAdd(curr, vec(e.movementX, e.movementY)));
   this.game.ghostTile.remove();
   this.game.moveGhostTo(this.game.ghostTile, getDivCenter(this.div));
+
+  var curr = getDivPos(this.div);
+  moveDiv(this.div, vAdd(curr, vec(e.movementX, e.movementY)));
 }
 
 // onMouseUp event handler.  Active only during mouse move.

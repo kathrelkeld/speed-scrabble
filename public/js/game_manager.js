@@ -29,6 +29,9 @@ GameManager.prototype.setup = function() {
   this.startGameDiv = createOverlayDiv("startGame", document.body);
   this.endGameDiv = createOverlayDiv("endGame", document.body);
   this.populateOverlayDivs();
+
+  // Initialize invalid tiles variable.
+  this.showingInvalidTiles = false;
 }
 
 // Create and add onclick handlers to various game buttons
@@ -105,7 +108,6 @@ GameManager.prototype.moveGhostTo = function(tile, position) {
 
 // Place a tile back in the tray.
 GameManager.prototype.moveTileToTray = function(tile) {
-  // Try to add to the grid or the tray at this position.
   this.tray.addTile(tile, null);
 }
 
@@ -136,8 +138,11 @@ GameManager.prototype.joinGame = function() {
 
 GameManager.prototype.verify = function() {
   var tileValues = this.stringifyTiles();
-  websocketSendAndGet("verify", tileValues, function() {})
-
+  websocketSendAndGet("verify", tileValues, function(type, data) {
+    if (type == "error") {
+      gamemanager.displayScore(data);
+    }
+  })
 }
 
 // Send gameboard for verification.
@@ -158,6 +163,7 @@ GameManager.prototype.stringifyTiles = function() {
 
 // Take action when a score is received (game over).
 GameManager.prototype.displayScore = function(score) {
+  gamemanager.grid.invalidateTiles(score["Invalid"]);
   if (score["Valid"]) {
     setMessages("You win!");
   } else {
