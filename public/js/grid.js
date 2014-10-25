@@ -250,7 +250,8 @@ Grid.prototype.shiftTiles = function(direction) {
     }
     for (var i=0; i < removed.length; i++) {
       if (removed[i]) {
-        this.game.tray.moveTileToTray(removed);
+        removed[i].remove();
+        this.game.moveTileToTray(removed[i]);
       }
     }
   }
@@ -264,7 +265,8 @@ Grid.prototype.shiftTiles = function(direction) {
     }
     if (direction == "up" || direction == "down") {
       if (removed) {
-        this.game.tray.moveTileToTray(removed);
+        removed.remove();
+        this.game.moveTileToTray(removed);
       }
     }
     for (var j=0; j < this.size.y; j++) {
@@ -275,6 +277,7 @@ Grid.prototype.shiftTiles = function(direction) {
       }
     }
   }
+  this.moveHighlight(direction);
 }
 
 // Find the nearest empty cell and return its index position.
