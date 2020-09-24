@@ -108,10 +108,25 @@ type Score struct {
 	Invalid VecSet
 }
 
-type Board [][]string
+type Board [][]*Tile
+
+func NewBoard(size Vec) *Board {
+	var b Board
+	for i := 0; i < size.Y; i++ {
+		b = append(b, []*Tile{})
+		for j := 0; j < size.X; j++ {
+			b[i] = append(b[i], nil)
+		}
+	}
+	return &b
+}
 
 func (b Board) value(v Vec) string {
-	return b[v.X][v.Y]
+	t := b[v.X][v.Y]
+	if t != nil {
+		return ""
+	}
+	return t.Value
 }
 
 // Create a VecSet containing all the tiles present on this board.
@@ -326,10 +341,10 @@ func (b Board) String() string {
 	result := ""
 	for i := 0; i < len(b); i++ {
 		for j := 0; j < len(b[0]); j++ {
-			if b[i][j] == "" {
+			if b[i][j] == nil {
 				result += " "
 			} else {
-				result += b[i][j]
+				result += b[i][j].Value
 			}
 		}
 		result += "\n"

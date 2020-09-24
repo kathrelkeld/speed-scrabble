@@ -19,6 +19,7 @@ type GameManager struct {
 
 func newGameManager(gridSize, tileCnt int) *GameManager {
 	return &GameManager{
+		board:    game.NewBoard(game.Vec{gridSize, gridSize}),
 		gridSize: gridSize,
 		tileCnt:  tileCnt,
 	}
@@ -32,9 +33,7 @@ func sendTilesToTray() js.Func {
 
 func requestNewTile() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// TODO check error
-		m, _ := game.NewSocketMsg(game.MsgAddTile, nil)
-		websocketSend(m)
+		websocketSendEmpty(game.MsgAddTile)
 		return nil
 	})
 }
@@ -45,6 +44,9 @@ func reload() js.Func {
 }
 func verify() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// TODO: add tiles
+		m, _ := game.NewSocketMsg(game.MsgVerify, nil)
+		websocketSend(m)
 		return nil
 	})
 }
@@ -59,6 +61,18 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 			onOk = onOk[1:]
 		}
 	case game.MsgError:
+	case game.MsgStart:
+		if manager != nil {
+			// TODO delete old manager
+		}
+		// TODO tie to actual game size
+		manager = newGameManager(16, 16)
+		err := json.Unmarshal(data, &manager.tiles)
+		if err != nil {
+			fmt.Println("Error reading game status:", err)
+			return 1
+		}
+		fmt.Println("current tiles:", manager.tiles)
 	case game.MsgAddTile:
 		var t game.Tile
 		err := json.Unmarshal(data, &t)
