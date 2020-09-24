@@ -21,21 +21,28 @@ func drawLineBetween(a, b game.Vec) {
 	ctx.Call("stroke")
 }
 
-func drawGrid() {
-	fmt.Println("drawing grid")
-	gridStart := game.Vec{0, 0}
-	gridEnd := game.Vec{
-		manager.gridSize.X*manager.tileSize + gridStart.X,
-		manager.gridSize.Y*manager.tileSize + gridStart.Y,
+func drawGrid(start, gridSize, tileSize game.Vec) {
+	end := game.Vec{
+		gridSize.X*tileSize.X + start.X,
+		gridSize.Y*tileSize.Y + start.Y,
 	}
-	for i := gridStart.X; i <= gridEnd.X; i += manager.tileSize {
-		drawLineBetween(game.Vec{i, gridStart.Y}, game.Vec{i, gridEnd.Y})
+	for i := start.X; i <= end.X; i += tileSize.X {
+		drawLineBetween(game.Vec{i, start.Y}, game.Vec{i, end.Y})
 	}
-	for j := gridStart.Y; j <= gridEnd.Y; j += manager.tileSize {
-		drawLineBetween(game.Vec{gridStart.X, j}, game.Vec{gridEnd.X, j})
+	for j := start.Y; j <= end.Y; j += tileSize.Y {
+		drawLineBetween(game.Vec{start.X, j}, game.Vec{end.X, j})
 	}
 }
 
+func drawTray() {
+	drawGrid(game.Vec{10, 450}, manager.traySize, manager.tileSize)
+}
+
+func drawBoard() {
+	drawGrid(game.Vec{10, 10}, manager.boardSize, manager.tileSize)
+}
+
 func draw() {
-	drawGrid()
+	drawBoard()
+	drawTray()
 }

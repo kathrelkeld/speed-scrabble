@@ -11,19 +11,21 @@ import (
 var manager *GameManager
 
 type GameManager struct {
-	board    *game.Board
-	tiles    []*TileLoc
-	gridSize game.Vec
-	tileCnt  int
-	tileSize int
+	board     *game.Board
+	tiles     []*TileLoc
+	boardSize game.Vec
+	traySize  game.Vec
+	tileCnt   int
+	tileSize  game.Vec
 }
 
-func newGameManager(gridSize game.Vec, tileCnt int) *GameManager {
+func newGameManager(boardSize game.Vec, tileCnt int) *GameManager {
 	return &GameManager{
-		board:    game.NewBoard(gridSize),
-		gridSize: gridSize,
-		tileCnt:  tileCnt,
-		tileSize: 25,
+		board:     game.NewBoard(boardSize),
+		boardSize: boardSize,
+		tileCnt:   tileCnt,
+		traySize:  game.Vec{tileCnt, 1},
+		tileSize:  game.Vec{25, 25},
 	}
 }
 
@@ -44,8 +46,8 @@ func newTileLoc(v string) *TileLoc {
 }
 
 func (t *TileLoc) collides(x, y int) bool {
-	return ((x < t.loc.X+manager.tileSize) && (x > t.loc.X) &&
-		(y < t.loc.Y+manager.tileSize) && (y > t.loc.Y))
+	return ((x < t.loc.X+manager.tileSize.X) && (x > t.loc.X) &&
+		(y < t.loc.Y+manager.tileSize.Y) && (y > t.loc.Y))
 }
 
 func sendTilesToTray() js.Func {
