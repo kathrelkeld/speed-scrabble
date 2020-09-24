@@ -1,4 +1,4 @@
-package main
+package game
 
 import (
 	"bufio"
@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var globalDict = initDictionary("sowpods.txt")
+var globalDict = initDictionary("game/sowpods.txt")
 
 func initDictionary(filename string) map[string]struct{} {
 	log.Println("Initializing dictionary from", filename)

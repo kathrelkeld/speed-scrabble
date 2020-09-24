@@ -1,4 +1,4 @@
-package main
+package game
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type MessageType int
+type MessageType byte
 
 const (
 	MsgOK MessageType = iota
@@ -45,36 +45,13 @@ var MessageTypeToString = map[MessageType]string{
 	MsgGameOver:   "gameOver",
 }
 
-func (mt MessageType) MarshalJSON() ([]byte, error) {
-	s := MessageTypeToString[mt]
-	if s == "" {
-		panic("No such message string to marshal!")
-	}
-	return json.Marshal(s)
-}
-
-func (mt *MessageType) UnmarshalJSON(b []byte) error {
-	var s string
-	err := json.Unmarshal(b, &s)
-	if err != nil {
-		return err
-	}
-	for key, value := range MessageTypeToString {
-		if value == s {
-			*mt = key
-			return nil
-		}
-	}
-	panic("No such message string to unmarshal!")
-}
-
 func (mt MessageType) String() string {
 	return fmt.Sprintf("\"%v\"", MessageTypeToString[mt])
 }
 
 type GameRequest struct {
 	Type MessageType
-	c    *Client
+	C    *Client
 }
 
 type SocketMsg struct {

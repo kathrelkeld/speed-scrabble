@@ -1,3 +1,0 @@
-# This is a configuration file for reflex
--g '*.go' -s -- sh -c 'make scrabble && ./scrabble'
--r '\.scss$' -- make public/css/style.css
