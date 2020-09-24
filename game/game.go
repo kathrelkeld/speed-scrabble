@@ -107,11 +107,11 @@ func (g *Game) Run() {
 				cm.c.ToClientChan <- m
 			case MsgAddTile:
 				if !g.isRunning {
-					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
+					cm.c.ToClientChan <- FromGameMsg{MsgError, g, "Game is not running"}
 					continue
 				}
 				if cm.c.TilesServedCount >= len(g.tiles) {
-					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
+					cm.c.ToClientChan <- FromGameMsg{MsgError, g, "No more tiles to serve"}
 					continue
 				}
 				m := FromGameMsg{MsgOK, g,
@@ -137,6 +137,7 @@ func AddAPlayerToAGame() {
 	for {
 		r := <-NewGameChan
 		log.Println("NewGameChan: Adding client to game")
+		//TODO allow for multiple games
 		GlobalGame.AddPlayerChan <- r.C
 		r.C.AssignGameChan <- GlobalGame
 	}

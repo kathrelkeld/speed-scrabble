@@ -54,6 +54,10 @@ func addTile(t game.Tile) {}
 func handleSocketMsg(t game.MessageType, data []byte) int {
 	switch t {
 	case game.MsgOK:
+		if len(onOk) > 0 {
+			onOk[0].Invoke()
+			onOk = onOk[1:]
+		}
 	case game.MsgError:
 	case game.MsgAddTile:
 		var t game.Tile

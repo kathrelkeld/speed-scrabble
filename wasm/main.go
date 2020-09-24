@@ -7,6 +7,16 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/game"
 )
 
+var onOk []js.Func
+
+func websocketOnOk(f js.Func) {
+	onOk = append(onOk, f)
+}
+
+func websocketSendEmpty(t game.MessageType) {
+	websocketSend([]byte{byte(t)})
+}
+
 func websocketSend(b []byte) {
 	v := js.Global().Get("Uint8Array").New(len(b))
 	js.CopyBytesToJS(v, b)
@@ -42,8 +52,12 @@ func newSocketWrapper() js.Func {
 	onOpen := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("websocket open")
 		// TODO: send init here
-		m, _ := game.NewSocketMsg(game.MsgStart, nil)
+		m, _ := game.NewSocketMsg(game.MsgJoinGame, "NAME")
 		websocketSend(m)
+		websocketOnOk(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			websocketSendEmpty(game.MsgStart)
+			return nil
+		}))
 		return nil
 	})
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {

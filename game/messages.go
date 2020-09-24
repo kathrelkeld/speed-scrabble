@@ -15,7 +15,6 @@ const (
 	MsgConnect
 	MsgJoinGame
 	MsgGameStatus
-	MsgGlobal
 	MsgNewGame
 	MsgStart
 	MsgNewTiles
@@ -33,7 +32,6 @@ var MessageTypeToString = map[MessageType]string{
 	MsgConnect:    "connect",
 	MsgJoinGame:   "joinGame",
 	MsgGameStatus: "gameStatus",
-	MsgGlobal:     "global",
 	MsgNewGame:    "newGame",
 	MsgStart:      "start",
 	MsgNewTiles:   "newTiles",

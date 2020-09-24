@@ -22,8 +22,6 @@ func newConnection(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	c := game.NewClient(conn)
-	// TODO check for response
-	game.NewGameChan <- game.GameRequest{game.MsgNewGame, c}
 	go c.Run()
 	go c.ReadSocketMsgs()
 }
@@ -35,8 +33,8 @@ func cleanup() {
 
 func main() {
 	defer cleanup()
-	go game.AddAPlayerToAGame()
 	go game.GlobalGame.Run()
+	go game.AddAPlayerToAGame()
 
 	const port = ":8888"
 	fileserver := http.FileServer(http.Dir("public"))
