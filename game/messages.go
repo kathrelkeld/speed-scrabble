@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 )
 
 type MessageType byte
@@ -56,19 +55,20 @@ type GameRequest struct {
 
 type SocketMsg struct {
 	Type MessageType
-	At   time.Time
-	Data *json.RawMessage
+	Data []byte
 }
 
-func newSocketMsg(t MessageType, d interface{}) (SocketMsg, error) {
-	marshaledData, err := json.Marshal(d)
+func NewSocketMsg(t MessageType, d interface{}) ([]byte, error) {
+	b, err := json.Marshal(d)
 	if err != nil {
-		log.Println("error:", err)
-		return SocketMsg{}, err
+		log.Println("error marshalling message:", err)
+		// TODO handle error
+		return nil, nil
 	}
-	raw := json.RawMessage(marshaledData)
-	m := SocketMsg{Type: t, At: time.Now(), Data: &raw}
-	return m, nil
+
+	b = append([]byte{byte(t)}, b...)
+
+	return b, nil
 }
 
 type FromClientMsg struct {

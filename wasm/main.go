@@ -1,35 +1,22 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"syscall/js"
 
 	"github.com/kathrelkeld/speed-scrabble/game"
 )
 
-func newMessage(t game.MessageType, d interface{}) js.Value {
-	b, err := json.Marshal(d)
-	if err != nil {
-		// TODO handle error
-	}
-	b = append([]byte{byte(t)}, b...)
+func websocketSend(b []byte) {
 	v := js.Global().Get("Uint8Array").New(len(b))
 	js.CopyBytesToJS(v, b)
-	return v
-}
 
-func websocketSend() js.Func {
-	// args = message data
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fmt.Println("Sending message")
-		soc := js.Global().Get("socket")
-		if !soc.Truthy() {
-			// TODO handle error
-		}
-		soc.Call("send", args[0])
-		return nil
-	})
+	fmt.Println("Sending message")
+	soc := js.Global().Get("socket")
+	if !soc.Truthy() {
+		// TODO handle error
+	}
+	soc.Call("send", v)
 }
 
 func websocketGet() js.Func {
@@ -41,6 +28,7 @@ func websocketGet() js.Func {
 			return nil
 		}
 		m := []byte(args[0].Get("data").String())
+		fmt.Println(m)
 		t := game.MessageType(m[0])
 		m = m[1:]
 
@@ -54,7 +42,8 @@ func newSocketWrapper() js.Func {
 	onOpen := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("websocket open")
 		// TODO: send init here
-		this.Call("websocketSend", newMessage(game.MsgConnect, "helloworld"))
+		m, _ := game.NewSocketMsg(game.MsgStart, nil)
+		websocketSend(m)
 		return nil
 	})
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -73,7 +62,6 @@ func newSocketWrapper() js.Func {
 		fmt.Println(wsPrefix + host + "/connect")
 		ws := js.Global().Get("WebSocket").New(wsPrefix + host + "/connect")
 		js.Global().Set("socket", ws)
-		ws.Set("websocketSend", websocketSend())
 		ws.Call("addEventListener", "message", websocketGet())
 		ws.Call("addEventListener", "open", onOpen)
 		return nil

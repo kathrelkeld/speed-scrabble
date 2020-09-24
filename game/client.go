@@ -87,9 +87,9 @@ func receiveClientMessages(gameChan chan ClientMessage,
 	}
 }
 
-func unmarshalString(raw *json.RawMessage) string {
+func unmarshalString(b []byte) string {
 	var s string
-	err := json.Unmarshal([]byte(*raw), &s)
+	err := json.Unmarshal(b, &s)
 	if err != nil {
 		log.Println("error:", err)
 		return ""
@@ -97,51 +97,46 @@ func unmarshalString(raw *json.RawMessage) string {
 	return s
 }
 
-func (c *Client) readSocketMsg() (SocketMsg, error) {
-	var m SocketMsg
-	_, p, err := c.conn.ReadMessage()
-	if err != nil {
-		log.Println("error:", err)
-		return m, err
-	}
-	err = json.Unmarshal(p, &m)
-	if err != nil {
-		log.Println("error:", err)
-		return m, err
-	}
-	log.Println("Got websocket message of type", m.Type)
-	return m, nil
-}
+func (c *Client) ReadSocketMsg() (SocketMsg, error) {
+	// TODO check error
+	_, b, _ := c.conn.ReadMessage()
+	t := MessageType(b[0])
+	b = b[1:]
 
-func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
-	m, err := newSocketMsg(t, d)
+	// TODO do things other than strings
+	var s string
+	err := json.Unmarshal(b, &s)
 	if err != nil {
-		log.Println("error:", err)
-		return err
+		// TODO handle error
 	}
-	j, err := json.Marshal(m)
-	if err != nil {
-		log.Println("error:", err)
-		return err
-	}
-	err = c.conn.WriteMessage(websocket.TextMessage, j)
-	if err != nil {
-		log.Println("error:", err)
-		return err
-	}
-	log.Println("Sent websocket message of type", m.Type)
-	return nil
+	log.Println("Got websocket message of type", t, ":", s)
+	return SocketMsg{t, b}, nil
 }
 
 func (c *Client) ReadSocketMsgs() {
 	for {
-		m, err := c.readSocketMsg()
+		m, err := c.ReadSocketMsg()
 		if err != nil {
-			c.socketChan <- SocketMsg{Type: MsgExit}
+			//TODO
 			return
 		}
 		c.socketChan <- m
 	}
+}
+
+func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
+	b, err := NewSocketMsg(t, d)
+	if err != nil {
+		// TODO handle error
+		return err
+	}
+
+	err = c.conn.WriteMessage(websocket.TextMessage, b)
+	if err != nil {
+		return err
+	}
+	log.Println("Sent websocket message of type", t)
+	return nil
 }
 
 func (c *Client) onRunClientExit() {
@@ -149,9 +144,9 @@ func (c *Client) onRunClientExit() {
 	c.cleanup()
 }
 
-func (c *Client) handleSendBoard(raw *json.RawMessage) Score {
+func (c *Client) handleSendBoard(b []byte) Score {
 	var board Board
-	err := json.Unmarshal([]byte(*raw), &board)
+	err := json.Unmarshal(b, &board)
 	if err != nil {
 		log.Println("error:", err)
 		return Score{}

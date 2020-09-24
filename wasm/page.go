@@ -42,4 +42,18 @@ func setUpPage() {
 	top := canvas.Get("offsetTop").Int() + canvas.Get("clientTop").Int()
 	canvas.Call("addEventListener", "click", canvasOnClick(left, top))
 	body.Call("appendChild", canvas)
+
+	// Add game buttons
+	body.Call("appendChild", newButton("Reset Tiles", "reset", sendTilesToTray()))
+	body.Call("appendChild", newButton("+1 Tile", "addTile", requestNewTile()))
+	body.Call("appendChild", newButton("NewGame", "reload", reload()))
+	body.Call("appendChild", newButton("Verify", "verify", verify()))
+
+	messages := js.Global().Get("document").Call("createElement", "textbox")
+	messages.Set("id", "messages")
+	body.Call("appendChild", messages)
+
+	debugBox := js.Global().Get("document").Call("createElement", "textbox")
+	debugBox.Set("id", "debug")
+	body.Call("appendChild", debugBox)
 }
