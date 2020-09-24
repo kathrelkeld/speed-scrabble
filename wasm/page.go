@@ -21,13 +21,20 @@ func canvasOnClick(left, top int) js.Func {
 		y := event.Get("pageY").Int() - top
 		// TODO do stuff here
 		fmt.Println("x, y", x, y)
+		if t := onTile(x, y); t != nil {
+			fmt.Println("on tile", t.value)
+		}
 		return nil
 	})
 }
 
-func inBounds(x, y, centerX, centerY, radius int) bool {
-	return ((x < centerX+radius) && (x > centerX-radius) &&
-		(y < centerY+radius) && (y > centerY-radius))
+func onTile(x, y int) *TileLoc {
+	for _, tile := range manager.tiles {
+		if tile.collides(x, y) {
+			return tile
+		}
+	}
+	return nil
 }
 
 func setUpPage() {
@@ -42,6 +49,7 @@ func setUpPage() {
 	top := canvas.Get("offsetTop").Int() + canvas.Get("clientTop").Int()
 	canvas.Call("addEventListener", "click", canvasOnClick(left, top))
 	body.Call("appendChild", canvas)
+	ctx = canvas.Call("getContext", "2d")
 
 	// Add game buttons
 	body.Call("appendChild", newButton("Reset Tiles", "reset", sendTilesToTray()))

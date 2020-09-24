@@ -12,9 +12,10 @@ var manager *GameManager
 
 type GameManager struct {
 	board    *game.Board
-	tiles    []*game.Tile
+	tiles    []*TileLoc
 	gridSize int
 	tileCnt  int
+	tileSize int
 }
 
 func newGameManager(gridSize, tileCnt int) *GameManager {
@@ -22,7 +23,29 @@ func newGameManager(gridSize, tileCnt int) *GameManager {
 		board:    game.NewBoard(game.Vec{gridSize, gridSize}),
 		gridSize: gridSize,
 		tileCnt:  tileCnt,
+		tileSize: 10,
 	}
+}
+
+type TileLoc struct {
+	value  string
+	inPlay bool
+	moving bool
+	loc    game.Vec
+}
+
+func newTileLoc(v string) *TileLoc {
+	return &TileLoc{
+		value:  v,
+		inPlay: false,
+		moving: false,
+		loc:    game.Vec{-1, -1},
+	}
+}
+
+func (t *TileLoc) collides(x, y int) bool {
+	return ((x < t.loc.X+manager.tileSize) && (x > t.loc.X) &&
+		(y < t.loc.Y+manager.tileSize) && (y > t.loc.Y))
 }
 
 func sendTilesToTray() js.Func {
@@ -39,6 +62,8 @@ func requestNewTile() js.Func {
 }
 func reload() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		//TODO debugging only
+		drawTile(&game.Tile{}, game.Vec{0, 0})
 		return nil
 	})
 }
@@ -50,8 +75,6 @@ func verify() js.Func {
 		return nil
 	})
 }
-
-func addTile(t game.Tile) {}
 
 func handleSocketMsg(t game.MessageType, data []byte) int {
 	switch t {
@@ -67,21 +90,25 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 		}
 		// TODO tie to actual game size
 		manager = newGameManager(16, 16)
-		err := json.Unmarshal(data, &manager.tiles)
+		var tiles []*game.Tile
+		err := json.Unmarshal(data, &tiles)
 		if err != nil {
 			fmt.Println("Error reading game status:", err)
 			return 1
 		}
-		fmt.Println("current tiles:", manager.tiles)
+		fmt.Println("current tiles:", tiles)
+		for _, tile := range tiles {
+			manager.tiles = append(manager.tiles, newTileLoc(tile.Value))
+		}
 	case game.MsgAddTile:
-		var t game.Tile
+		var tile game.Tile
 		err := json.Unmarshal(data, &t)
 		if err != nil {
 			fmt.Println("Error reading game status:", err)
 			return 1
 		}
-		addTile(t)
-		fmt.Println("Adding new tile:", t.Value)
+		manager.tiles = append(manager.tiles, newTileLoc(tile.Value))
+		fmt.Println("Adding new tile:", tile.Value)
 	case game.MsgScore:
 
 	case game.MsgGameStatus:
