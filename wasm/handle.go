@@ -13,17 +13,17 @@ var manager *GameManager
 type GameManager struct {
 	board    *game.Board
 	tiles    []*TileLoc
-	gridSize int
+	gridSize game.Vec
 	tileCnt  int
 	tileSize int
 }
 
-func newGameManager(gridSize, tileCnt int) *GameManager {
+func newGameManager(gridSize game.Vec, tileCnt int) *GameManager {
 	return &GameManager{
-		board:    game.NewBoard(game.Vec{gridSize, gridSize}),
+		board:    game.NewBoard(gridSize),
 		gridSize: gridSize,
 		tileCnt:  tileCnt,
-		tileSize: 10,
+		tileSize: 25,
 	}
 }
 
@@ -62,8 +62,6 @@ func requestNewTile() js.Func {
 }
 func reload() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		//TODO debugging only
-		drawTile(&game.Tile{}, game.Vec{0, 0})
 		return nil
 	})
 }
@@ -89,7 +87,7 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 			// TODO delete old manager
 		}
 		// TODO tie to actual game size
-		manager = newGameManager(16, 16)
+		manager = newGameManager(game.Vec{16, 16}, 16)
 		var tiles []*game.Tile
 		err := json.Unmarshal(data, &tiles)
 		if err != nil {
@@ -100,6 +98,7 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 		for _, tile := range tiles {
 			manager.tiles = append(manager.tiles, newTileLoc(tile.Value))
 		}
+		draw()
 	case game.MsgAddTile:
 		var tile game.Tile
 		err := json.Unmarshal(data, &t)
