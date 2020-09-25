@@ -6,19 +6,6 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-var GlobalGame = NewGame()
-var NewGameChan = make(chan MsgGameRequest)
-
-type gameState int
-
-const (
-	StateInit gameState = iota
-	StateRunning
-	StateWaitingRoundReady
-	StateWaitingScores
-	StateOver
-)
-
 type Game struct {
 	name            string
 	tiles           []Tile
@@ -26,19 +13,23 @@ type Game struct {
 	state           gameState
 	startingTileCnt int
 
-	//Accessible by other routines; Not allowed to change.
-	ToGameChan    chan MsgFromClient
-	AddPlayerChan chan *Client
+	ToGameChan     chan MsgFromClient
+	ToAssignerChan chan *Game
+	AddPlayerChan  chan *Client
 }
 
-func NewGame() *Game {
-	return &Game{
+func StartNewGame(toAssignerChan chan *Game, name string) *Game {
+	game := &Game{
+		name:            name,
 		tiles:           newTiles(),
 		clients:         make(map[*Client]bool),
 		ToGameChan:      make(chan MsgFromClient),
 		AddPlayerChan:   make(chan *Client),
+		ToAssignerChan:  toAssignerChan,
 		startingTileCnt: 12,
 	}
+	go game.Run()
+	return game
 }
 
 func (g *Game) Cleanup() {
@@ -103,6 +94,7 @@ func (g *Game) Run() {
 		case c := <-g.AddPlayerChan:
 			log.Println("runGame: Adding client to game")
 			g.clients[c] = false
+			c.ToClientChan <- MsgFromGame{msg.PlayerJoined, g, nil}
 		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.Type)
 			switch cm.Type {
@@ -147,6 +139,7 @@ func (g *Game) Run() {
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {
 					g.state = StateOver
+					g.ToAssignerChan <- g
 					return
 				}
 			}

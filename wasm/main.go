@@ -7,12 +7,6 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-var onOk []js.Func
-
-func websocketOnOk(f js.Func) {
-	onOk = append(onOk, f)
-}
-
 func websocketSendEmpty(t msg.Type) {
 	websocketSend([]byte{byte(t)})
 }

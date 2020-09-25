@@ -267,10 +267,6 @@ func releaseTile(l canvasLoc) {
 func joinGame() {
 	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
 	websocketSend(m)
-	websocketOnOk(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		websocketSendEmpty(msg.RoundReady)
-		return nil
-	}))
 }
 
 func sendAllTilesToTray() js.Func {
@@ -308,11 +304,8 @@ func verify() js.Func {
 
 func handleSocketMsg(t msg.Type, data []byte) int {
 	switch t {
-	case msg.OK:
-		if len(onOk) > 0 {
-			onOk[0].Invoke()
-			onOk = onOk[1:]
-		}
+	case msg.PlayerJoined:
+		websocketSendEmpty(msg.RoundReady)
 	case msg.Error:
 	case msg.RoundReady:
 		// Game is ready.  Need to reply with msg.Start player is ready.

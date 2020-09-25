@@ -12,7 +12,7 @@ import (
 // (via websocket), with a single game (via channels), and with the overall game state
 // (via channels, e.g. starting new games).
 type Client struct {
-	conn        WebSocketConn
+	conn        *websocket.Conn
 	socketChan  chan msg.SocketData
 	game        *Game
 	tilesServed int
@@ -20,16 +20,18 @@ type Client struct {
 
 	Name           string
 	ToClientChan   chan MsgFromGame
+	NewGameChan    chan MsgGameRequest
 	AssignGameChan chan *Game
 }
 
-// NewClient creates a new Client with the given websocket connection.  No game is assigned.
-func NewClient(conn WebSocketConn) *Client {
+// NewClient creates a new Client with the given websocket connection and game assigner.
+func NewClient(conn *websocket.Conn, ga *GameAssigner) *Client {
 	return &Client{
 		conn:           conn,
 		socketChan:     make(chan msg.SocketData),
 		ToClientChan:   make(chan MsgFromGame),
 		AssignGameChan: make(chan *Game),
+		NewGameChan:    ga.NewGameChan,
 	}
 }
 
@@ -93,7 +95,7 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 		if c.game != nil {
 			//TODO: handle already in game case
 		} else {
-			NewGameChan <- MsgGameRequest{c}
+			c.NewGameChan <- MsgGameRequest{c}
 		}
 	case msg.RoundReady:
 		// Player indicating that they want to start a new round.
@@ -163,6 +165,8 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 // Returns 1 if the client needs to exit; else 0.
 func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	switch m.Type {
+	case msg.PlayerJoined:
+		c.sendSocketMsg(msg.PlayerJoined, nil)
 	case msg.RoundReady:
 		// Game notifying client that a new round is ready.
 		if c.state == StateWaitingRoundReady {
@@ -202,7 +206,6 @@ func (c *Client) Run() {
 	defer c.cleanup()
 
 	c.state = StateRunning
-	c.sendSocketMsg(msg.OK, nil)
 	for {
 		select {
 		case m := <-c.socketChan:
@@ -217,8 +220,8 @@ func (c *Client) Run() {
 			}
 		case game := <-c.AssignGameChan:
 			c.game = game
-			c.game.ToGameChan = game.ToGameChan
 			c.sendSocketMsg(msg.OK, nil)
+			c.game.AddPlayerChan <- c
 		}
 	}
 }

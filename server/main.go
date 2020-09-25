@@ -14,6 +14,8 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+var ga *game.GameAssigner
+
 func newConnection(w http.ResponseWriter, req *http.Request) {
 	log.Println("Handling new client.")
 	conn, err := upgrader.Upgrade(w, req, nil)
@@ -21,19 +23,13 @@ func newConnection(w http.ResponseWriter, req *http.Request) {
 		log.Println("error making connection:", err)
 		return
 	}
-	c := game.NewClient(conn)
+	c := game.NewClient(conn, ga)
 	go c.Run()
 }
 
-func cleanup() {
-	close(game.NewGameChan)
-	game.GlobalGame.Cleanup()
-}
-
 func main() {
-	defer cleanup()
-	go game.GlobalGame.Run()
-	go game.AddAPlayerToAGame()
+	ga = game.StartGameAssigner()
+	defer ga.Close()
 
 	const port = ":8888"
 	fileserver := http.FileServer(http.Dir("public"))

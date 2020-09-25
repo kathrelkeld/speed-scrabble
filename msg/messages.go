@@ -34,26 +34,28 @@ const (
 	Invalid
 	OutOfTiles
 	RoundOver
+	PlayerJoined
 )
 
 var TypeToString = map[Type]string{
-	OK:         "ok",
-	Error:      "error",
-	Exit:       "exit",
-	JoinGame:   "joinGame",
-	GameStatus: "gameStatus",
-	RoundReady: "roundReady",
-	NewGame:    "newGame",
-	Start:      "start",
-	NewTiles:   "newTiles",
-	AddTile:    "addTile",
-	SendBoard:  "sendBoard",
-	Verify:     "verify",
-	Score:      "score",
-	Notify:     "notify",
-	Invalid:    "invalid",
-	OutOfTiles: "outOfTiles",
-	RoundOver:  "roundOver",
+	OK:           "ok",
+	Error:        "error",
+	Exit:         "exit",
+	JoinGame:     "joinGame",
+	GameStatus:   "gameStatus",
+	RoundReady:   "roundReady",
+	NewGame:      "newGame",
+	Start:        "start",
+	NewTiles:     "newTiles",
+	AddTile:      "addTile",
+	SendBoard:    "sendBoard",
+	Verify:       "verify",
+	Score:        "score",
+	Notify:       "notify",
+	Invalid:      "invalid",
+	OutOfTiles:   "outOfTiles",
+	RoundOver:    "roundOver",
+	PlayerJoined: "playerJoined",
 }
 
 func (mt Type) String() string {
