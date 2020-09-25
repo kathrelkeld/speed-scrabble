@@ -10,12 +10,12 @@ type Game struct {
 	name            string
 	tiles           []Tile
 	clients         map[*Client]bool
+	lastScores      map[*Client]Score
 	state           gameState
 	startingTileCnt int
 
 	ToGameChan     chan MsgFromClient
 	ToAssignerChan chan *Game
-	AddPlayerChan  chan *Client
 	quit           chan struct{}
 }
 
@@ -24,8 +24,8 @@ func StartNewGame(toAssignerChan chan *Game, name string) *Game {
 		name:            name,
 		tiles:           newTiles(),
 		clients:         make(map[*Client]bool),
+		lastScores:      make(map[*Client]Score),
 		ToGameChan:      make(chan MsgFromClient),
-		AddPlayerChan:   make(chan *Client),
 		ToAssignerChan:  toAssignerChan,
 		startingTileCnt: 12,
 		quit:            make(chan struct{}),
@@ -39,25 +39,27 @@ func (g *Game) Close() {
 	g.state = StateOver
 	g.ToAssignerChan <- g
 	for c := range g.clients {
-		c.ToClientChan <- MsgFromGame{msg.Exit, g, nil}
+		c.Close()
 	}
 	close(g.ToGameChan)
-	close(g.AddPlayerChan)
 	close(g.quit)
 }
 
-func (g *Game) newTiles() {
-	g.tiles = newTiles()
+func (g *Game) AddPlayer(c *Client) {
+	log.Println("runGame: Adding client to game")
+	g.clients[c] = false
+	c.sendSocketMsg(msg.PlayerJoined, nil)
+	c.game = g
 }
 
-func (g *Game) sendGameStatus() {
+func (g *Game) sendGameInfo() {
 	var names []string
 	for c := range g.clients {
 		names = append(names, c.Name)
 	}
-	status := msg.GameInfo{g.name, names}
+	info := msg.GameInfoData{g.name, names}
 	for c := range g.clients {
-		c.ToClientChan <- MsgFromGame{msg.GameStatus, g, status}
+		c.sendSocketMsg(msg.GameInfo, info)
 	}
 }
 
@@ -72,21 +74,16 @@ func (g *Game) allClientsTrue() bool {
 func (g *Game) sendToAllClients(t msg.Type, d interface{}) {
 	log.Printf("Sending %s to all clients.\n", t)
 	for c := range g.clients {
-		c.ToClientChan <- MsgFromGame{t, g, d}
+		c.sendSocketMsg(t, d)
 	}
 }
 
-func (g *Game) hearFromAllClients(t msg.Type) {
-	log.Println("Hearing from all clients.")
+func (g *Game) sendToAllClientsExcept(exc *Client, t msg.Type, d interface{}) {
+	log.Printf("Sending %s to all clients.\n", t)
 	for c := range g.clients {
-		g.clients[c] = false
-	}
-	for !g.allClientsTrue() {
-		cm := <-g.ToGameChan
-		if cm.Type != t {
-			cm.C.ToClientChan <- MsgFromGame{msg.Error, g, nil}
+		if c != exc {
+			c.sendSocketMsg(t, d)
 		}
-		g.clients[cm.C] = true
 	}
 }
 
@@ -99,50 +96,67 @@ func (g *Game) resetClientReply() {
 func (g *Game) Run() {
 	for {
 		select {
-		case c := <-g.AddPlayerChan:
-			log.Println("runGame: Adding client to game")
-			g.clients[c] = false
-			c.ToClientChan <- MsgFromGame{msg.PlayerJoined, g, nil}
 		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.Type)
 			switch cm.Type {
 			case msg.RoundReady:
-				// Player is initiating a new game.
-				g.newTiles()
-				g.resetClientReply()
-				g.state = StateWaitingRoundReady
-				g.sendToAllClients(msg.RoundReady, nil)
-			case msg.Start:
-				// Player is ready to start playing.
+				// Player indicating that they want to start a new round.
 				if g.state != StateWaitingRoundReady {
-					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "unexpected message"}
+					// If game is not waiting, start a new round and start waiting.
+					g.tiles = newTiles()
+					g.lastScores = make(map[*Client]Score)
+					g.resetClientReply()
+					g.state = StateWaitingRoundReady
+					g.sendToAllClientsExcept(cm.C, msg.RoundReady, nil)
+					// TODO: add timeout
+				}
+				// Mark this player as ready.
+				g.clients[cm.C] = true
+				if g.allClientsTrue() {
+					g.state = StateRunning
+					tiles := g.tiles[:g.startingTileCnt]
+					log.Println("Sent tiles:", tiles)
+					g.sendToAllClients(msg.Start, tiles)
+					for client := range g.clients {
+						client.tilesServed = g.startingTileCnt
+					}
+				}
+			case msg.AddTile:
+				if g.state != StateRunning {
+					cm.C.sendSocketMsg(msg.Error, "Error: no active game!")
+				} else {
+					cm.C.addTile()
+				}
+			case msg.Verify:
+				if g.state != StateRunning {
+					cm.C.sendSocketMsg(msg.Error, "Error: no active game!")
+				} else {
+					board := cm.Data.([]byte)
+					if ok, score := cm.C.checkGameWon(board); ok {
+						g.lastScores[cm.C] = score
+						g.resetClientReply()
+						g.state = StateWaitingScores
+						g.clients[cm.C] = true
+						g.sendToAllClientsExcept(cm.C, msg.SendBoard, nil)
+					}
+				}
+			case msg.SendBoard:
+				if g.state != StateWaitingScores {
+					// TODO: should not have gotten this message
 					continue
 				}
+				board := cm.Data.([]byte)
+				score := cm.C.ScoreMarshalledBoard(board)
 				g.clients[cm.C] = true
+				g.lastScores[cm.C] = score
 				// TODO: add timeout
 				if g.allClientsTrue() {
-					g.state = StateRunning
-					g.sendToAllClients(msg.Start, nil)
-				}
-			case msg.Score:
-				score := cm.Data.(Score)
-				if g.state != StateWaitingScores {
-					if !score.Win {
-						// TODO: should not have gotten first score from a non-winning hand
-					}
-					g.resetClientReply()
-					g.sendToAllClients(msg.RoundOver, nil)
-					g.state = StateWaitingScores
-				}
-				g.clients[cm.C] = true
-				// TODO: add timeout
-				if g.allClientsTrue() {
-					g.state = StateRunning
 					//TODO: get scores to determine a winner
 					g.sendToAllClients(msg.Score, nil)
 					g.state = StateOver
 				}
 			case msg.Exit:
+				cm.C.Close()
 				delete(g.clients, cm.C)
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {

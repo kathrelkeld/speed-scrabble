@@ -349,11 +349,11 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			return 1
 		}
 		markInvalidTiles(invalid)
-	case msg.GameStatus:
-		var s msg.GameInfo
+	case msg.GameInfo:
+		var s msg.GameInfoData
 		err := json.Unmarshal(data, &s)
 		if err != nil {
-			fmt.Println("Error reading game status:", err)
+			fmt.Println("Error reading game info:", err)
 			return 1
 		}
 		fmt.Println("Game:", s.GameName)

@@ -21,7 +21,7 @@ const (
 	// StartRequest is us
 	StartRequest
 	JoinGame
-	GameStatus
+	GameInfo
 	RoundReady
 	NewGame
 	Start
@@ -42,7 +42,7 @@ var TypeToString = map[Type]string{
 	Error:        "error",
 	Exit:         "exit",
 	JoinGame:     "joinGame",
-	GameStatus:   "gameStatus",
+	GameInfo:     "gameInfo",
 	RoundReady:   "roundReady",
 	NewGame:      "newGame",
 	Start:        "start",
@@ -80,7 +80,7 @@ func NewSocketData(t Type, d interface{}) ([]byte, error) {
 	return b, nil
 }
 
-type GameInfo struct {
+type GameInfoData struct {
 	GameName    string
 	PlayerNames []string
 }

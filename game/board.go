@@ -340,17 +340,6 @@ func (b Board) scoreBoard(tilesServed []Tile) Score {
 	return result
 }
 
-// ScoreMarshalledBoard takes a JSON board and tiles served and returns a score for that board.
-func ScoreMarshalledBoard(b []byte, tilesServed []Tile) Score {
-	var board Board
-	err := json.Unmarshal(b, &board)
-	if err != nil {
-		log.Println("error:", err)
-		return Score{}
-	}
-	return board.scoreBoard(tilesServed)
-}
-
 // Printable board.
 func (b Board) String() string {
 	result := ""

@@ -6,8 +6,6 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-var CloseGameChan = make(chan MsgFromGame)
-
 type gameState int
 
 const (
@@ -21,10 +19,14 @@ const (
 // A GameAssigner manages game assignments.
 // TODO make game assigner keep track of active clients too.
 type GameAssigner struct {
-	NewGameChan  chan MsgGameRequest
+	// Used by Clients to send in game requests.
+	NewGameChan chan MsgGameRequest
+	// Used by Games to indicate they're closing.
 	GameExitChan chan *Game
-	games        map[string]*Game
-	quit         chan struct{}
+	// Map of id -> running games.
+	games map[string]*Game
+	// Used to cleanly exit server.
+	quit chan struct{}
 }
 
 // StartGameAssigner starts and returns a new GameAssigner.
@@ -48,7 +50,7 @@ func (ga *GameAssigner) Run() {
 				ga.games["global"] = StartNewGame(ga.GameExitChan, "global")
 			}
 			log.Println("GameAssigner assigning client to game")
-			req.C.AssignGameChan <- ga.games["global"]
+			ga.games["global"].AddPlayer(req.C)
 		case game := <-ga.GameExitChan:
 			delete(ga.games, game.name)
 		case <-ga.quit:
@@ -75,12 +77,5 @@ type MsgGameRequest struct {
 type MsgFromClient struct {
 	Type msg.Type
 	C    *Client
-	Data interface{}
-}
-
-// A MsgFromGame is sent from a Game to a Client or Run().
-type MsgFromGame struct {
-	Type msg.Type
-	G    *Game
 	Data interface{}
 }
