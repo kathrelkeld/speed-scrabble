@@ -5,11 +5,11 @@ import (
 	"syscall/js"
 )
 
-var ctx js.Value // set during page setUp
+var canvas js.Value // set during page setUp
+var ctx js.Value    // set during page setUp
 
 func drawTile(t *TileLoc) {
 	size := manager.tileSize
-	fmt.Println("drawing tile", t.value)
 	ctx.Set("fillStyle", "black")
 	ctx.Call("fillRect", t.canvasLoc.X, t.canvasLoc.Y, size.X, size.Y)
 	ctx.Set("fillStyle", "red")
@@ -53,6 +53,7 @@ func drawBoard() {
 }
 
 func draw() {
+	ctx.Call("clearRect", 0, 0, canvas.Get("width"), canvas.Get("height"))
 	drawBoard()
 	drawTray()
 	drawTiles()
