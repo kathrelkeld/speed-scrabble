@@ -137,17 +137,6 @@ func sendTileToTray(t *TileLoc) {
 	addToTray(t, gridLoc{len(manager.tray[0]) - 1, 0})
 }
 
-func sendAllTilesToTray() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		for _, t := range manager.tiles {
-			if t.region == OnBoard {
-				sendTileToTray(t)
-			}
-		}
-		return nil
-	})
-}
-
 func onTile(l canvasLoc) *TileLoc {
 	for _, t := range manager.tiles {
 		if l.X > t.canvasLoc.X && l.X < t.canvasLoc.X+manager.tileSize.X &&
@@ -254,6 +243,18 @@ func releaseTile(l canvasLoc) {
 	canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
 
 	draw()
+}
+
+func sendAllTilesToTray() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		for _, t := range manager.tiles {
+			if t.region == OnBoard {
+				sendTileToTray(t)
+			}
+		}
+		draw()
+		return nil
+	})
 }
 
 func requestNewTile() js.Func {
