@@ -12,19 +12,16 @@ import (
 // A Client represents a single player.  The client handles websocket interactions
 // and keeping state for this player.
 type Client struct {
-	conn        *websocket.Conn
-	game        *Game
-	tilesServed int
-
-	Name        string
-	NewGameChan chan MsgGameRequest
+	Name      string
+	conn      *websocket.Conn
+	game      *Game
+	servedCnt int
 }
 
-// StartNewClient creates a new Client with the given websocket connection and game assigner.
-func StartNewClient(conn *websocket.Conn, ga *GameAssigner) *Client {
+// StartNewClient creates a new Client with the given websocket connection.
+func StartNewClient(conn *websocket.Conn) *Client {
 	c := &Client{
-		conn:        conn,
-		NewGameChan: ga.NewGameChan,
+		conn: conn,
 	}
 	go c.readSocketMsgs()
 	return c
@@ -33,7 +30,7 @@ func StartNewClient(conn *websocket.Conn, ga *GameAssigner) *Client {
 // Close is used to request the Client exit gracefully.
 func (c *Client) Close() {
 	if c.game != nil {
-		c.game.ToGameChan <- MsgFromClient{msg.Exit, c, nil}
+		c.game.toGameChan <- MsgFromClient{msg.Exit, c, nil}
 	}
 	c.conn.Close()
 }
@@ -57,9 +54,9 @@ func (c *Client) readSocketMsgs() {
 
 		log.Println("Got websocket message of type", t)
 		if t == msg.JoinGame {
-			c.NewGameChan <- MsgGameRequest{c}
+			Assigner.NewGameChan <- MsgGameRequest{c}
 		} else if c.game != nil {
-			c.game.ToGameChan <- MsgFromClient{t, c, b}
+			c.game.toGameChan <- MsgFromClient{t, c, b}
 		} else {
 			log.Println("Ignoring websocket message of type", t)
 		}
@@ -89,13 +86,13 @@ func (c *Client) sendSocketMsg(t msg.Type, d interface{}) {
 
 // addTile is called when a player requests a new tile.  It either sends a tile or an error.
 func (c *Client) addTile() {
-	if c.tilesServed >= len(c.game.tiles) {
+	if c.servedCnt >= len(c.game.tiles) {
 		c.sendSocketMsg(msg.OutOfTiles, "Out of tiles!")
 	} else {
-		tile := c.game.tiles[c.tilesServed]
+		tile := c.game.tiles[c.servedCnt]
 		log.Println("Sending tile:", tile)
 		c.sendSocketMsg(msg.AddTile, tile)
-		c.tilesServed += 1
+		c.servedCnt += 1
 	}
 }
 
@@ -107,7 +104,7 @@ func (c *Client) ScoreMarshalledBoard(d []byte) Score {
 		log.Println("error:", err)
 		return Score{}
 	}
-	return board.scoreBoard(c.game.tiles[:c.tilesServed])
+	return board.scoreBoard(c.game.tiles[:c.servedCnt])
 }
 
 // checkGameWon takes a JSON board and either replies with invalid tiles or indicates the end

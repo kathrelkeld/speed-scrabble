@@ -2,11 +2,11 @@ package game
 
 import (
 	"log"
-
-	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-// A GameAssigner manages game assignments.
+var Assigner = NewGameAssigner()
+
+// The GameAssigner manages game assignments.
 // TODO make game assigner keep track of active clients too.
 type GameAssigner struct {
 	// Used by Clients to send in game requests.
@@ -20,15 +20,13 @@ type GameAssigner struct {
 }
 
 // StartGameAssigner starts and returns a new GameAssigner.
-func StartGameAssigner() *GameAssigner {
-	ga := GameAssigner{
+func NewGameAssigner() *GameAssigner {
+	return &GameAssigner{
 		NewGameChan:  make(chan MsgGameRequest),
 		GameExitChan: make(chan *Game),
 		games:        make(map[string]*Game),
 		quit:         make(chan struct{}),
 	}
-	go ga.Run()
-	return &ga
 }
 
 // Run accepts game requests from clients, and creates/destroys games.
@@ -37,12 +35,12 @@ func (ga *GameAssigner) Run() {
 		select {
 		case req := <-ga.NewGameChan:
 			if ga.games["global"] == nil {
-				ga.games["global"] = StartNewGame(ga.GameExitChan, "global")
+				ga.games["global"] = StartNewGame("global")
 			}
 			log.Println("GameAssigner assigning client to game")
 			ga.games["global"].AddPlayer(req.C)
 		case game := <-ga.GameExitChan:
-			delete(ga.games, game.name)
+			delete(ga.games, game.Name)
 		case <-ga.quit:
 			return
 		}
@@ -61,11 +59,4 @@ func (ga *GameAssigner) Close() {
 type MsgGameRequest struct {
 	// TODO: allow client to defined desired parameters.
 	C *Client
-}
-
-// A MsgFromClient is sent from a Client to a Game.
-type MsgFromClient struct {
-	Type msg.Type
-	C    *Client
-	Data interface{}
 }

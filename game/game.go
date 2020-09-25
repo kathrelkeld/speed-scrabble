@@ -20,27 +20,32 @@ const (
 // A Game represents a single game with at least one player, which may last for multiple
 // rounds.
 type Game struct {
-	name            string
+	Name            string
 	tiles           []Tile
 	clients         map[*Client]bool
 	lastScores      map[*Client]Score
 	state           gameState
 	startingTileCnt int
 
-	ToGameChan     chan MsgFromClient
-	ToAssignerChan chan *Game
-	quit           chan struct{}
+	toGameChan chan MsgFromClient
+	quit       chan struct{}
+}
+
+// A MsgFromClient is sent from a Client to a Game.
+type MsgFromClient struct {
+	Type msg.Type
+	C    *Client
+	Data interface{}
 }
 
 // StartNewGame is used by the GameAssigner to make a new game.
-func StartNewGame(toAssignerChan chan *Game, name string) *Game {
+func StartNewGame(name string) *Game {
 	game := &Game{
-		name:            name,
+		Name:            name,
 		tiles:           newTiles(),
 		clients:         make(map[*Client]bool),
 		lastScores:      make(map[*Client]Score),
-		ToGameChan:      make(chan MsgFromClient),
-		ToAssignerChan:  toAssignerChan,
+		toGameChan:      make(chan MsgFromClient),
 		startingTileCnt: 12,
 		quit:            make(chan struct{}),
 	}
@@ -51,11 +56,11 @@ func StartNewGame(toAssignerChan chan *Game, name string) *Game {
 // Close game: notify GameAssigner and any clients; close any active channels or go routines.
 func (g *Game) Close() {
 	g.state = StateOver
-	g.ToAssignerChan <- g
+	Assigner.GameExitChan <- g
 	for c := range g.clients {
 		c.Close()
 	}
-	close(g.ToGameChan)
+	close(g.toGameChan)
 	close(g.quit)
 }
 
@@ -74,7 +79,7 @@ func (g *Game) sendGameInfo() {
 	for c := range g.clients {
 		names = append(names, c.Name)
 	}
-	info := msg.GameInfoData{g.name, names}
+	info := msg.GameInfoData{g.Name, names}
 	for c := range g.clients {
 		c.sendSocketMsg(msg.GameInfo, info)
 	}
@@ -118,7 +123,7 @@ func (g *Game) sendToAllClientsExcept(exc *Client, t msg.Type, d interface{}) {
 func (g *Game) Run() {
 	for {
 		select {
-		case cm := <-g.ToGameChan:
+		case cm := <-g.toGameChan:
 			log.Println("Game got client message of type:", cm.Type)
 			switch cm.Type {
 			case msg.RoundReady:
@@ -140,7 +145,7 @@ func (g *Game) Run() {
 					log.Println("Sent tiles:", tiles)
 					g.sendToAllClients(msg.Start, tiles)
 					for client := range g.clients {
-						client.tilesServed = g.startingTileCnt
+						client.servedCnt = g.startingTileCnt
 					}
 				}
 			case msg.AddTile:
