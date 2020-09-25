@@ -22,6 +22,8 @@ const (
 	SendBoard
 	Verify
 	Score
+	Notify
+	Invalid
 	GameOver
 )
 
@@ -39,6 +41,8 @@ var TypeToString = map[Type]string{
 	SendBoard:  "sendBoard",
 	Verify:     "verify",
 	Score:      "score",
+	Notify:     "notify",
+	Invalid:    "invalid",
 	GameOver:   "gameOver",
 }
 

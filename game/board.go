@@ -262,7 +262,7 @@ func (b Board) scoreComponentList(cs []VecSet) int {
 	return bestScore
 }
 
-// Return false if set and board have mismatched tile values.
+// Return false if board is not a subset of tiles served.
 func (b Board) compareTileValues(c *Client, s VecSet) bool {
 	t := c.getAllTilesServed()
 	tileCount := make(map[string]int)
@@ -316,7 +316,7 @@ func (b Board) scoreBoard(c *Client) Score {
 	}
 	// A valid board must contain exactly the tiles served.
 	if !b.compareTileValues(c, boardSet) {
-		log.Println("Impossibily mismatched tiles: cheating suspected!")
+		log.Println("Impossibly mismatched tiles: cheating suspected!")
 		result.Valid = false
 		result.Score = maxScore
 		return result

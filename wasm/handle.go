@@ -84,6 +84,7 @@ type TileLoc struct {
 	gridLoc    gridLoc
 	canvasLoc  canvasLoc
 	moveOffset canvasLoc
+	invalid    bool
 }
 
 const (
@@ -113,7 +114,7 @@ func addToTray(t *TileLoc, gl gridLoc) {
 }
 
 func addToBoard(t *TileLoc, gl gridLoc) {
-	manager.board[gl.X][gl.Y] = t
+	manager.board[gl.Y][gl.X] = t
 	t.region = OnBoard
 	t.gridLoc = gl
 	t.canvasLoc = canvasLoc{
@@ -135,6 +136,23 @@ func sendTileToTray(t *TileLoc) {
 	manager.tray[0] = append(manager.tray[0], t)
 	manager.traySize.X += 1
 	addToTray(t, gridLoc{len(manager.tray[0]) - 1, 0})
+}
+
+func markInvalidTiles(coords []gridLoc) {
+	for _, c := range(coords) {
+		t := manager.board[c.Y][c.X]
+		if t == nil {
+			fmt.Println("Verify marked a non-tile as invalid?")
+			return
+		}
+		t.invalid = true
+	}
+}
+
+func markAllTilesValid() {
+	for _, t := range(manager.tiles) {
+		t.invalid = false
+	}
 }
 
 func onTile(l canvasLoc) *TileLoc {
@@ -180,17 +198,16 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 		sendTileToTray(manager.movingTile)
 	}
 	manager.movingTile = t
-	if t.region == OnTray {
-		manager.tray[t.gridLoc.Y][t.gridLoc.X] = nil
-	} else if t.region == OnBoard {
+	if t.region == OnBoard{
 		manager.board[t.gridLoc.Y][t.gridLoc.X] = nil
+	} else if t.region == OnTray {
+		manager.tray[t.gridLoc.Y][t.gridLoc.X] = nil
 	}
 	t.region = OnMoving
 	t.moveOffset = canvasLoc{l.X - t.canvasLoc.X, l.Y - t.canvasLoc.Y}
 
 	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
 	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
-
 }
 
 func moveTile(l canvasLoc) {
@@ -241,6 +258,8 @@ func releaseTile(l canvasLoc) {
 
 	canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
 	canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
+
+	markAllTilesValid()
 
 	draw()
 }
@@ -327,6 +346,14 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 		draw()
 	case msg.Score:
 
+	case msg.Invalid:
+		var invalid []gridLoc
+		err := json.Unmarshal(data, &invalid)
+		if err != nil {
+			fmt.Println("Error reading invalid tiles:", err)
+			return 1
+		}
+		markInvalidTiles(invalid)
 	case msg.GameStatus:
 		var s msg.GameInfo
 		err := json.Unmarshal(data, &s)

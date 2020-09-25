@@ -205,15 +205,18 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 		}
 	case msg.Verify:
 		score := c.handleSendBoard(m.Data)
-		//TODO: uncomment this when code is stable
-		//if !score.Valid {
-		//c.sendSocketMsg(msg.Error, score)
-		//} else {
-		c.sendSocketMsg(msg.Score, score)
-		c.toGameChan <- MsgFromClient{msg.GameOver, c, nil}
-		_ = <-c.ToClientChan
-		c.toGameChan <- MsgFromClient{msg.OK, c, nil}
-		//}
+		if !score.Valid {
+			var invalid []Vec
+			for k := range(score.Invalid) {
+				invalid = append(invalid, k)
+			}
+			c.sendSocketMsg(msg.Invalid, invalid)
+		} else {
+			c.sendSocketMsg(msg.Score, score)
+			c.toGameChan <- MsgFromClient{msg.GameOver, c, nil}
+			_ = <-c.ToClientChan
+			c.toGameChan <- MsgFromClient{msg.OK, c, nil}
+		}
 	case msg.SendBoard:
 		score := c.handleSendBoard(m.Data)
 		c.sendSocketMsg(msg.Score, score)
