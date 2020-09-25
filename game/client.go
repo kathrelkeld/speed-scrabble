@@ -195,8 +195,10 @@ func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	return 0
 }
 
+// Run is the main processing loop of a Client.
+// Kicked off in its own goroutine by the server.
 func (c *Client) Run() {
-	go c.readSocketMsgs() // Pass websocket messages to socketChan.
+	go c.readSocketMsgs()
 	defer c.cleanup()
 
 	c.state = StateRunning
