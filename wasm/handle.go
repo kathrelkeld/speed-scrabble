@@ -245,6 +245,15 @@ func releaseTile(l canvasLoc) {
 	draw()
 }
 
+func joinGame() {
+	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
+	websocketSend(m)
+	websocketOnOk(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		websocketSendEmpty(msg.Start)
+		return nil
+	}))
+}
+
 func sendAllTilesToTray() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		for _, t := range manager.tiles {
@@ -263,8 +272,9 @@ func requestNewTile() js.Func {
 		return nil
 	})
 }
-func reload() js.Func {
+func newGame() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		websocketSendEmpty(msg.Start)
 		return nil
 	})
 }

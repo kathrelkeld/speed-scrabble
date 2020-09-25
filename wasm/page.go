@@ -19,7 +19,7 @@ func setUpPage() {
 	// Add game buttons
 	body.Call("appendChild", newButton("Reset Tiles", "reset", sendAllTilesToTray()))
 	body.Call("appendChild", newButton("+1 Tile", "addTile", requestNewTile()))
-	body.Call("appendChild", newButton("NewGame", "reload", reload()))
+	body.Call("appendChild", newButton("NewGame", "newGame", newGame()))
 	body.Call("appendChild", newButton("Verify", "verify", verify()))
 
 	messages := js.Global().Get("document").Call("createElement", "textbox")

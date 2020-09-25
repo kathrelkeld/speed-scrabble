@@ -170,20 +170,17 @@ func (c *Client) handleMsgStart() {
 func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 	if !c.validGame {
 		switch m.Type { //For messages not involving a game.
-		case msg.Start:
-			log.Println("Got start message for invalid game")
 		case msg.JoinGame:
 			//TODO: handle already in game case
 			c.Name = unmarshalString(m.Data)
 			NewGameChan <- MsgGameRequest{msg.OK, c}
 			game := <-c.AssignGameChan
-			c.toGameChan = game.ToGameChan
 			c.validGame = true
+			c.toGameChan = game.ToGameChan
 			c.sendSocketMsg(msg.OK, nil)
 			return 0
 		}
-	}
-	if !c.validGame {
+
 		c.sendSocketMsg(msg.Error, nil)
 		log.Println("Cannot interact with an invalid game!")
 		return 1
@@ -231,11 +228,13 @@ func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	switch m.Type {
 	case msg.NewGame:
 		c.handleMsgStart()
+		c.validGame = true
 	case msg.GameStatus:
 		c.sendSocketMsg(msg.GameStatus, m.data)
 	case msg.GameOver:
 		c.sendSocketMsg(msg.SendBoard, nil)
 		c.toGameChan <- MsgFromClient{msg.OK, c, nil}
+		c.validGame = false
 	}
 	return 0
 }

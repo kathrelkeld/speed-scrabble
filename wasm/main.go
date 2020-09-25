@@ -52,12 +52,7 @@ func newSocketWrapper() js.Func {
 	onOpen := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("websocket open")
 		// TODO: send init here
-		m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
-		websocketSend(m)
-		websocketOnOk(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			websocketSendEmpty(msg.Start)
-			return nil
-		}))
+		joinGame()
 		return nil
 	})
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
