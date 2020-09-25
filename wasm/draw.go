@@ -7,9 +7,20 @@ import (
 
 var ctx js.Value // set during page setUp
 
-func drawTile(t TileLoc, v canvasLoc) {
+func drawTile(t *TileLoc) {
+	size := manager.tileSize
 	fmt.Println("drawing tile", t.value)
-	ctx.Call("fillRect", 10, 10, 100, 100)
+	ctx.Set("fillStyle", "black")
+	ctx.Call("fillRect", t.canvasLoc.X, t.canvasLoc.Y, size.X, size.Y)
+	ctx.Set("fillStyle", "red")
+	ctx.Set("font", fmt.Sprintf("%v", size.X)+"px Arial")
+	ctx.Call("fillText", t.value, t.canvasLoc.X, t.canvasLoc.Y+manager.tileSize.Y)
+}
+
+func drawTiles() {
+	for _, t := range manager.tiles {
+		drawTile(t)
+	}
 }
 
 func drawLineBetween(a, b canvasLoc) {
@@ -20,6 +31,7 @@ func drawLineBetween(a, b canvasLoc) {
 }
 
 func drawGrid(start canvasLoc, gridSize, tileSize sizeV) {
+	ctx.Set("fillStyle", "black")
 	end := canvasLoc{
 		gridSize.X*tileSize.X + start.X,
 		gridSize.Y*tileSize.Y + start.Y,
@@ -33,14 +45,15 @@ func drawGrid(start canvasLoc, gridSize, tileSize sizeV) {
 }
 
 func drawTray() {
-	drawGrid(canvasLoc{10, 450}, manager.traySize, manager.tileSize)
+	drawGrid(manager.trayLoc, manager.traySize, manager.tileSize)
 }
 
 func drawBoard() {
-	drawGrid(canvasLoc{10, 10}, manager.boardSize, manager.tileSize)
+	drawGrid(manager.boardLoc, manager.boardSize, manager.tileSize)
 }
 
 func draw() {
 	drawBoard()
 	drawTray()
+	drawTiles()
 }

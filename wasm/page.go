@@ -17,31 +17,22 @@ func canvasOnClick(left, top int) js.Func {
 	// args = event
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
-		x := event.Get("pageX").Int() - left
-		y := event.Get("pageY").Int() - top
+		x := event.Get("offsetX").Int() - left
+		y := event.Get("offsetY").Int() - top
 		// TODO do stuff here
 		fmt.Println("x, y", x, y)
-		if t := onTile(x, y); t != nil {
+		if t := onTile(canvasLoc{x, y}); t != nil {
 			fmt.Println("on tile", t.value)
 		}
 		return nil
 	})
 }
 
-func onTile(x, y int) *TileLoc {
-	for _, tile := range manager.tiles {
-		if tile.collides(x, y) {
-			return tile
-		}
-	}
-	return nil
-}
-
 func setUpPage() {
 	body := js.Global().Get("document").Get("body")
 
 	// Add game buttons
-	body.Call("appendChild", newButton("Reset Tiles", "reset", sendTilesToTray()))
+	body.Call("appendChild", newButton("Reset Tiles", "reset", sendAllTilesToTray()))
 	body.Call("appendChild", newButton("+1 Tile", "addTile", requestNewTile()))
 	body.Call("appendChild", newButton("NewGame", "reload", reload()))
 	body.Call("appendChild", newButton("Verify", "verify", verify()))
