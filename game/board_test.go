@@ -14,7 +14,7 @@ func makeTestBoard(x, y int, letters ...string) Board {
 		return b
 	}
 	for i := 0; i < x; i++ {
-		b = append(b, letters[i*y:(i+1)*y])
+		b = append(b, &Tile{Value: letters[i*y : (i+1)*y]})
 	}
 	return b
 }

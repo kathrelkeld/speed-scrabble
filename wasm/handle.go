@@ -139,7 +139,7 @@ func sendTileToTray(t *TileLoc) {
 }
 
 func markInvalidTiles(coords []gridLoc) {
-	for _, c := range(coords) {
+	for _, c := range coords {
 		t := manager.board[c.Y][c.X]
 		if t == nil {
 			fmt.Println("Verify marked a non-tile as invalid?")
@@ -150,7 +150,7 @@ func markInvalidTiles(coords []gridLoc) {
 }
 
 func markAllTilesValid() {
-	for _, t := range(manager.tiles) {
+	for _, t := range manager.tiles {
 		t.invalid = false
 	}
 }
@@ -198,7 +198,7 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 		sendTileToTray(manager.movingTile)
 	}
 	manager.movingTile = t
-	if t.region == OnBoard{
+	if t.region == OnBoard {
 		manager.board[t.gridLoc.Y][t.gridLoc.X] = nil
 	} else if t.region == OnTray {
 		manager.tray[t.gridLoc.Y][t.gridLoc.X] = nil

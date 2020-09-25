@@ -205,9 +205,9 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 		}
 	case msg.Verify:
 		score := c.handleSendBoard(m.Data)
-		if !score.Valid {
+		if !score.Win {
 			var invalid []Vec
-			for k := range(score.Invalid) {
+			for k := range score.Invalid {
 				invalid = append(invalid, k)
 			}
 			c.sendSocketMsg(msg.Invalid, invalid)
