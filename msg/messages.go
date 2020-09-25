@@ -22,7 +22,7 @@ const (
 	StartRequest
 	JoinGame
 	GameStatus
-	GameReady
+	RoundReady
 	NewGame
 	Start
 	NewTiles
@@ -33,7 +33,7 @@ const (
 	Notify
 	Invalid
 	OutOfTiles
-	GameOver
+	RoundOver
 )
 
 var TypeToString = map[Type]string{
@@ -42,7 +42,7 @@ var TypeToString = map[Type]string{
 	Exit:       "exit",
 	JoinGame:   "joinGame",
 	GameStatus: "gameStatus",
-	GameReady:  "gameReady",
+	RoundReady: "roundReady",
 	NewGame:    "newGame",
 	Start:      "start",
 	NewTiles:   "newTiles",
@@ -53,7 +53,7 @@ var TypeToString = map[Type]string{
 	Notify:     "notify",
 	Invalid:    "invalid",
 	OutOfTiles: "outOfTiles",
-	GameOver:   "gameOver",
+	RoundOver:  "roundOver",
 }
 
 func (mt Type) String() string {

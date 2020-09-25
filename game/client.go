@@ -82,9 +82,12 @@ func (c *Client) sendSocketMsg(t msg.Type, d interface{}) error {
 	return nil
 }
 
+// handleSocketMsg is called to process an incomming message from the player.
+// Returns 1 if the client needs to exit; else 0.
 func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 	switch m.Type {
 	case msg.Exit:
+		// Player asking to close the connection.
 		return 1
 	case msg.JoinGame:
 		// Player asking to join a new game.
@@ -93,26 +96,27 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 		} else {
 			NewGameChan <- MsgGameRequest{c}
 		}
-	case msg.GameReady:
+	case msg.RoundReady:
 		// Player indicating that they want to start a new round.
-		if c.state == StateWaitingGameReady {
-			// Tell game player is ready.
+		if c.state == StateWaitingRoundReady {
+			// If game is waiting, tell game player is ready.
 			c.state = StateInit
 			c.game.ToGameChan <- MsgFromClient{msg.Start, c, nil}
 		} else {
-			// Tell game player wants a new game.
-			c.state = StateWaitingGameReady
-			c.game.ToGameChan <- MsgFromClient{msg.GameReady, c, nil}
+			// If game is not waiting, tell game player wants a new round.
+			c.state = StateWaitingRoundReady
+			c.game.ToGameChan <- MsgFromClient{msg.RoundReady, c, nil}
 		}
 	case msg.Start:
 		// Player confirming that they are ready for a new round.
-		if c.state != StateWaitingGameReady {
+		if c.state != StateWaitingRoundReady {
 			// TODO handle already playing case
 		} else {
 			// Tell game that player is ready to start playing.
 			c.game.ToGameChan <- MsgFromClient{msg.Start, c, nil}
 		}
 	case msg.AddTile:
+		// Player asking for a new tile.
 		if c.game == nil {
 			c.sendSocketMsg(msg.Error, "Error: no active game!")
 			return 1
@@ -126,23 +130,27 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 			c.tilesServed += 1
 		}
 	case msg.Verify:
+		// Player indicating they think they have won.
 		if c.game == nil {
 			c.sendSocketMsg(msg.Error, "Error: no active game!")
 			return 1
 		}
 		score := ScoreMarshalledBoard(m.Data, c.game.tiles[:c.tilesServed])
 		if !score.Win {
+			// Send back invalid tiles.
 			var invalid []Vec
 			for k := range score.Invalid {
 				invalid = append(invalid, k)
 			}
 			c.sendSocketMsg(msg.Invalid, invalid)
 		} else {
+			// Tell game that round is over.
 			c.state = StateWaitingScores
 			c.lastScore = &score
-			c.game.ToGameChan <- MsgFromClient{msg.GameOver, c, nil}
+			c.game.ToGameChan <- MsgFromClient{msg.RoundOver, c, nil}
 		}
 	case msg.SendBoard:
+		// Player sending board state after round is over.
 		if c.game == nil {
 			c.sendSocketMsg(msg.Error, "Error: no active game!")
 			return 1
@@ -155,16 +163,16 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 
 func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	switch m.Type {
-	case msg.GameReady:
-		// Game notifying client that a new game is ready.
-		if c.state == StateWaitingGameReady {
+	case msg.RoundReady:
+		// Game notifying client that a new round is ready.
+		if c.state == StateWaitingRoundReady {
 			// Reply ok since player is ready.
 			c.state = StateInit
 			c.game.ToGameChan <- MsgFromClient{msg.Start, c, nil}
 		} else {
 			// Ask player if they are ready.
-			c.state = StateWaitingGameReady
-			c.sendSocketMsg(msg.GameReady, nil)
+			c.state = StateWaitingRoundReady
+			c.sendSocketMsg(msg.RoundReady, nil)
 		}
 	case msg.Start:
 		// Game telling client to start playing.
@@ -173,7 +181,7 @@ func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 		log.Println("Sending tiles:", tiles)
 		c.state = StateRunning
 		c.sendSocketMsg(msg.Start, tiles)
-	case msg.GameOver:
+	case msg.RoundOver:
 		// Game telling client that someone won; asking for scores.
 		if c.state == StateWaitingScores {
 			// Client already has score.  Send it.

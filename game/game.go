@@ -14,7 +14,7 @@ type gameState int
 const (
 	StateInit gameState = iota
 	StateRunning
-	StateWaitingGameReady
+	StateWaitingRoundReady
 	StateWaitingScores
 	StateOver
 )
@@ -106,15 +106,15 @@ func (g *Game) Run() {
 		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.Type)
 			switch cm.Type {
-			case msg.GameReady:
+			case msg.RoundReady:
 				// Player is initiating a new game.
 				g.newTiles()
 				g.resetClientReply()
-				g.state = StateWaitingGameReady
-				g.sendToAllClients(msg.GameReady, nil)
+				g.state = StateWaitingRoundReady
+				g.sendToAllClients(msg.RoundReady, nil)
 			case msg.Start:
 				// Player is ready to start playing.
-				if g.state != StateWaitingGameReady {
+				if g.state != StateWaitingRoundReady {
 					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "unexpected message"}
 					continue
 				}
@@ -124,9 +124,9 @@ func (g *Game) Run() {
 					g.state = StateRunning
 					g.sendToAllClients(msg.Start, nil)
 				}
-			case msg.GameOver:
+			case msg.RoundOver:
 				g.resetClientReply()
-				g.sendToAllClients(msg.GameOver, nil)
+				g.sendToAllClients(msg.RoundOver, nil)
 				g.state = StateWaitingScores
 			case msg.Score:
 				if g.state != StateWaitingScores {
