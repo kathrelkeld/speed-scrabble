@@ -23,7 +23,6 @@ func newConnection(w http.ResponseWriter, req *http.Request) {
 	}
 	c := game.NewClient(conn)
 	go c.Run()
-	go c.ReadSocketMsgs()
 }
 
 func cleanup() {

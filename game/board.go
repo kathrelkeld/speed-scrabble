@@ -273,14 +273,13 @@ func (b Board) bestScore(cs []VecSet) int {
 }
 
 // compareTileValues will return false if board is not a subset of tiles served.
-// Takes in the client that was served these tiles and a set of the tiles on this board.
-func (b Board) compareTileValues(c *Client, s VecSet) bool {
-	t := c.getAllTilesServed()
+// Takes in the tiles that have been served and the tiles on this board.
+func (b Board) compareTileValues(sent []Tile, received VecSet) bool {
 	tileCount := make(map[string]int)
-	for _, elt := range t {
+	for _, elt := range sent {
 		tileCount[elt.Value] += 1
 	}
-	for key := range s {
+	for key := range received {
 		tileCount[b.value(key)] -= 1
 	}
 	// Return false if an impossible value is found.
@@ -294,10 +293,14 @@ func (b Board) compareTileValues(c *Client, s VecSet) bool {
 	return true
 }
 
-// scoreBoard returns the overall score for this board from the given client.
+// scoreBoard returns the overall score for this board given the tiles served.
 // This function is called by the client.
-func (b Board) scoreBoard(c *Client) Score {
-	maxScore := c.getMaxScore() // Score if board is empty.
+func (b Board) scoreBoard(tilesServed []Tile) Score {
+	// Calculate score if board is empty.
+	maxScore := 0
+	for _, elt := range tilesServed {
+		maxScore += elt.Points
+	}
 	result := Score{Win: true, Score: maxScore, Invalid: make(VecSet)}
 	boardSet := b.createVecSetOfAllTiles()
 
@@ -317,7 +320,7 @@ func (b Board) scoreBoard(c *Client) Score {
 		}
 	}
 	// A winning board must contain all the tiles served and no more.
-	tilesServedCount := c.getTilesServedCount()
+	tilesServedCount := len(tilesServed)
 	if len(boardSet) != tilesServedCount {
 		result.Win = false
 		if len(boardSet) > tilesServedCount {
@@ -327,7 +330,7 @@ func (b Board) scoreBoard(c *Client) Score {
 		}
 	}
 	// A winning board must contain exactly the tiles served.
-	if !b.compareTileValues(c, boardSet) {
+	if !b.compareTileValues(tilesServed, boardSet) {
 		log.Println("Impossibly mismatched tiles: cheating suspected!")
 		result.Win = false
 		result.Score = maxScore
@@ -335,6 +338,17 @@ func (b Board) scoreBoard(c *Client) Score {
 	}
 	// Return true if all other checks have passed.
 	return result
+}
+
+// ScoreMarshalledBoard takes a JSON board and tiles served and returns a score for that board.
+func ScoreMarshalledBoard(b []byte, tilesServed []Tile) Score {
+	var board Board
+	err := json.Unmarshal(b, &board)
+	if err != nil {
+		log.Println("error:", err)
+		return Score{}
+	}
+	return board.scoreBoard(tilesServed)
 }
 
 // Printable board.

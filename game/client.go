@@ -1,7 +1,6 @@
 package game
 
 import (
-	"encoding/json"
 	"log"
 
 	"github.com/gorilla/websocket"
@@ -9,202 +8,129 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
+// A Client represents a single player.  The client interacts with the player's page
+// (via websocket), with a single game (via channels), and with the overall game state
+// (via channels, e.g. starting new games).
 type Client struct {
 	conn        WebSocketConn
 	socketChan  chan msg.SocketData
-	tilesServed []Tile
-	maxScore    int
-	toGameChan  chan MsgFromClient
-	validGame   bool
-	running     bool
+	game        *Game
+	tilesServed int
+	state       gameState
+	lastScore   *Score
 
-	//Accessible by other routines; Not allowed to change.
-	Name             string
-	TilesServedCount int
-	ToClientChan     chan MsgFromGame
-	AssignGameChan   chan *Game
+	Name           string
+	ToClientChan   chan MsgFromGame
+	AssignGameChan chan *Game
 }
 
+// NewClient creates a new Client with the given websocket connection.  No game is assigned.
 func NewClient(conn WebSocketConn) *Client {
-	c := Client{}
-	c.conn = conn
-	c.socketChan = make(chan msg.SocketData)
-	c.validGame = false
-	c.running = false
-	c.ToClientChan = make(chan MsgFromGame)
-	c.AssignGameChan = make(chan *Game)
-	return &c
+	return &Client{
+		conn:           conn,
+		socketChan:     make(chan msg.SocketData),
+		ToClientChan:   make(chan MsgFromGame),
+		AssignGameChan: make(chan *Game),
+	}
 }
 
 func (c *Client) cleanup() {
 	close(c.socketChan)
 	close(c.ToClientChan)
 	close(c.AssignGameChan)
-	c.running = false
-}
-
-func (c *Client) newTiles(t []Tile) {
-	c.TilesServedCount = len(t)
-	c.tilesServed = t
-	c.maxScore = 0
-	for _, elt := range t {
-		c.maxScore += elt.Points
+	c.state = StateOver
+	if c.game != nil {
+		c.game.ToGameChan <- MsgFromClient{msg.Exit, c, nil}
 	}
 }
 
-func (c *Client) addTile(t Tile) {
-	c.tilesServed = append(c.tilesServed, t)
-	c.TilesServedCount += 1
-	c.maxScore += t.Points
-}
-
-func (c *Client) getTilesServedCount() int {
-	return c.TilesServedCount
-}
-
-func (c *Client) getAllTilesServed() []Tile {
-	return c.tilesServed[:c.TilesServedCount]
-}
-
-func (c *Client) getMaxScore() int {
-	return c.maxScore
-}
-
-type ClientMessage struct {
-	typ        msg.Type
-	clientChan chan msg.Type
-}
-
-func receiveClientMessages(gameChan chan ClientMessage,
-	clientChan, endChan chan msg.Type) {
+// readSocketMsgs passes all incoming websocket messages to a channel to be handled.
+// Must be run as a separate go routine; started by Run().
+// The first message byte is always the type, followed by JSON data.
+func (c *Client) readSocketMsgs() {
 	for {
-		select {
-		case _ = <-endChan:
-			log.Println("ClientMessage: Got exit signal! Ending loop!")
-			break
-		case m := <-clientChan:
-			log.Println("Got a client message: ", m)
-			gameChan <- ClientMessage{m, clientChan}
-		}
-	}
-}
-
-func unmarshalString(b []byte) string {
-	var s string
-	err := json.Unmarshal(b, &s)
-	if err != nil {
-		log.Println("error:", err)
-		return ""
-	}
-	return s
-}
-
-func (c *Client) ReadSocketMsg() (msg.SocketData, error) {
-	// TODO check error
-	_, b, err := c.conn.ReadMessage()
-	if err != nil {
-		log.Println("Bad message", err)
-		return msg.SocketData{}, err
-	}
-	t := msg.Type(b[0])
-	b = b[1:]
-
-	return msg.SocketData{t, b}, nil
-}
-
-func (c *Client) ReadSocketMsgs() {
-	for {
-		m, err := c.ReadSocketMsg()
+		_, b, err := c.conn.ReadMessage()
 		if err != nil {
-			log.Println("Error reading socket message", err)
+			log.Println("Error reading socket message; closing client", err)
+			c.socketChan <- msg.SocketData{msg.Exit, nil}
 			return
 		}
-		log.Println("Got websocket message of type", m.Type, m.Data)
-		c.socketChan <- m
+		t := msg.Type(b[0]) // The first byte is the message type.
+		b = b[1:]           // Any remaining bytes are JSON encoded data.
+
+		log.Println("Got websocket message of type", t)
+		c.socketChan <- msg.SocketData{t, b}
 	}
 }
 
+// sendSocketMsg sends a websocket message of the given type with the given data.
+// The data must be marshallable into JSON.
 func (c *Client) sendSocketMsg(t msg.Type, d interface{}) error {
 	b, err := msg.NewSocketData(t, d)
 	if err != nil {
-		// TODO handle error
+		log.Println("Could not sent websocket message of type", t, err)
 		return err
 	}
 
 	err = c.conn.WriteMessage(websocket.TextMessage, b)
 	if err != nil {
+		log.Println("Could not write to websocket; closing client", err)
+		c.socketChan <- msg.SocketData{msg.Exit, nil}
 		return err
 	}
 	log.Println("Sent websocket message of type", t)
 	return nil
 }
 
-func (c *Client) onRunClientExit() {
-	c.toGameChan <- MsgFromClient{msg.Exit, c, nil}
-	c.cleanup()
-}
-
-func (c *Client) handleSendBoard(b []byte) Score {
-	var board Board
-	err := json.Unmarshal(b, &board)
-	if err != nil {
-		log.Println("error:", err)
-		return Score{}
-	}
-	return board.scoreBoard(c)
-}
-
-func (c *Client) handleMsgStart() {
-	log.Println("Starting game")
-	c.toGameChan <- MsgFromClient{msg.Start, c, nil}
-	_ = <-c.ToClientChan
-	c.toGameChan <- MsgFromClient{msg.NewTiles, c, nil}
-	tileMsg := <-c.ToClientChan
-	//TODO: handle MsgError
-	tiles := tileMsg.data.([]Tile)
-	log.Println("Sending tiles:", tiles)
-	c.sendSocketMsg(msg.Start, tiles)
-	c.newTiles(tiles)
-}
-
 func (c *Client) handleSocketMsg(m *msg.SocketData) int {
-	if !c.validGame {
-		switch m.Type { //For messages not involving a game.
-		case msg.JoinGame:
-			//TODO: handle already in game case
-			c.Name = unmarshalString(m.Data)
-			NewGameChan <- MsgGameRequest{msg.OK, c}
-			game := <-c.AssignGameChan
-			c.validGame = true
-			c.toGameChan = game.ToGameChan
-			c.sendSocketMsg(msg.OK, nil)
-			return 0
-		}
-
-		c.sendSocketMsg(msg.Error, nil)
-		log.Println("Cannot interact with an invalid game!")
+	switch m.Type {
+	case msg.Exit:
 		return 1
-	}
-	switch m.Type { //For game interaction messages.
-	case msg.Start:
-		c.toGameChan <- MsgFromClient{msg.Start, c, nil}
-		//TODO: handle msg.Error
-		_ = <-c.ToClientChan
-		c.handleMsgStart()
-	case msg.AddTile:
-		c.toGameChan <- MsgFromClient{msg.AddTile, c, nil}
-		tileMsg := <-c.ToClientChan
-		if tileMsg.Type == msg.Error {
-			// TODO: send out of tiles error
-			log.Println(tileMsg.data)
+	case msg.JoinGame:
+		// Player asking to join a new game.
+		if c.game != nil {
+			//TODO: handle already in game case
 		} else {
-			tile := tileMsg.data.(Tile)
+			NewGameChan <- MsgGameRequest{c}
+		}
+	case msg.GameReady:
+		// Player indicating that they want to start a new round.
+		if c.state == StateWaitingGameReady {
+			// Tell game player is ready.
+			c.state = StateInit
+			c.game.ToGameChan <- MsgFromClient{msg.Start, c, nil}
+		} else {
+			// Tell game player wants a new game.
+			c.state = StateWaitingGameReady
+			c.game.ToGameChan <- MsgFromClient{msg.GameReady, c, nil}
+		}
+	case msg.Start:
+		// Player confirming that they are ready for a new round.
+		if c.state != StateWaitingGameReady {
+			// TODO handle already playing case
+		} else {
+			// Tell game that player is ready to start playing.
+			c.game.ToGameChan <- MsgFromClient{msg.Start, c, nil}
+		}
+	case msg.AddTile:
+		if c.game == nil {
+			c.sendSocketMsg(msg.Error, "Error: no active game!")
+			return 1
+		}
+		if c.tilesServed >= len(c.game.tiles) {
+			c.sendSocketMsg(msg.OutOfTiles, "Out of tiles!")
+		} else {
+			tile := c.game.tiles[c.tilesServed]
 			log.Println("Sending tile:", tile)
 			c.sendSocketMsg(msg.AddTile, tile)
-			c.addTile(tile)
+			c.tilesServed += 1
 		}
 	case msg.Verify:
-		score := c.handleSendBoard(m.Data)
+		if c.game == nil {
+			c.sendSocketMsg(msg.Error, "Error: no active game!")
+			return 1
+		}
+		score := ScoreMarshalledBoard(m.Data, c.game.tiles[:c.tilesServed])
 		if !score.Win {
 			var invalid []Vec
 			for k := range score.Invalid {
@@ -212,39 +138,62 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 			}
 			c.sendSocketMsg(msg.Invalid, invalid)
 		} else {
-			c.sendSocketMsg(msg.Score, score)
-			c.toGameChan <- MsgFromClient{msg.GameOver, c, nil}
-			_ = <-c.ToClientChan
-			c.toGameChan <- MsgFromClient{msg.OK, c, nil}
+			c.state = StateWaitingScores
+			c.lastScore = &score
+			c.game.ToGameChan <- MsgFromClient{msg.GameOver, c, nil}
 		}
 	case msg.SendBoard:
-		score := c.handleSendBoard(m.Data)
-		c.sendSocketMsg(msg.Score, score)
-	case msg.Exit:
-		c.toGameChan <- MsgFromClient{msg.Exit, c, nil}
-		return 1
+		if c.game == nil {
+			c.sendSocketMsg(msg.Error, "Error: no active game!")
+			return 1
+		}
+		score := ScoreMarshalledBoard(m.Data, c.game.tiles[:c.tilesServed])
+		c.game.ToGameChan <- MsgFromClient{msg.Score, c, &score}
 	}
 	return 0
 }
 
 func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	switch m.Type {
-	case msg.NewGame:
-		c.handleMsgStart()
-		c.validGame = true
-	case msg.GameStatus:
-		c.sendSocketMsg(msg.GameStatus, m.data)
+	case msg.GameReady:
+		// Game notifying client that a new game is ready.
+		if c.state == StateWaitingGameReady {
+			// Reply ok since player is ready.
+			c.state = StateInit
+			c.game.ToGameChan <- MsgFromClient{msg.Start, c, nil}
+		} else {
+			// Ask player if they are ready.
+			c.state = StateWaitingGameReady
+			c.sendSocketMsg(msg.GameReady, nil)
+		}
+	case msg.Start:
+		// Game telling client to start playing.
+		c.tilesServed = c.game.startingTileCnt
+		tiles := c.game.tiles[:c.tilesServed]
+		log.Println("Sending tiles:", tiles)
+		c.state = StateRunning
+		c.sendSocketMsg(msg.Start, tiles)
 	case msg.GameOver:
-		c.sendSocketMsg(msg.SendBoard, nil)
-		c.toGameChan <- MsgFromClient{msg.OK, c, nil}
-		c.validGame = false
+		// Game telling client that someone won; asking for scores.
+		if c.state == StateWaitingScores {
+			// Client already has score.  Send it.
+			c.game.ToGameChan <- MsgFromClient{msg.Score, c, c.lastScore}
+		} else {
+			c.sendSocketMsg(msg.SendBoard, nil)
+		}
+		c.state = StateOver
+	case msg.Score:
+		// Game sending scores to client.
+		c.sendSocketMsg(msg.Score, m.Data)
 	}
 	return 0
 }
 
 func (c *Client) Run() {
-	defer c.onRunClientExit()
-	c.running = true
+	go c.readSocketMsgs() // Pass websocket messages to socketChan.
+	defer c.cleanup()
+
+	c.state = StateRunning
 	c.sendSocketMsg(msg.OK, nil)
 	for {
 		select {
@@ -258,6 +207,10 @@ func (c *Client) Run() {
 				log.Println("Exiting Client")
 				return
 			}
+		case game := <-c.AssignGameChan:
+			c.game = game
+			c.game.ToGameChan = game.ToGameChan
+			c.sendSocketMsg(msg.OK, nil)
 		}
 	}
 }

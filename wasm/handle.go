@@ -268,7 +268,7 @@ func joinGame() {
 	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
 	websocketSend(m)
 	websocketOnOk(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		websocketSendEmpty(msg.Start)
+		websocketSendEmpty(msg.GameReady)
 		return nil
 	}))
 }
@@ -293,7 +293,7 @@ func requestNewTile() js.Func {
 }
 func newGame() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		websocketSendEmpty(msg.Start)
+		websocketSendEmpty(msg.GameReady)
 		return nil
 	})
 }
@@ -314,6 +314,8 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			onOk = onOk[1:]
 		}
 	case msg.Error:
+	case msg.GameReady:
+		// Game is ready.  Need to reply with msg.Start player is ready.
 	case msg.Start:
 		if manager != nil {
 			// TODO delete old manager

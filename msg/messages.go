@@ -9,12 +9,20 @@ import (
 type Type byte
 
 const (
+	// OK is used to acknowlege a previous message.
+	// Data: empty.
 	OK Type = iota
+	// Error means something went wrong in a survivable way.
+	// Data: string of any additional info.
 	Error
+	// Exit means the sender is exiting, either due to request or error.
+	// Data: string of any additional info.
 	Exit
-	Connect
+	// StartRequest is us
+	StartRequest
 	JoinGame
 	GameStatus
+	GameReady
 	NewGame
 	Start
 	NewTiles
@@ -24,6 +32,7 @@ const (
 	Score
 	Notify
 	Invalid
+	OutOfTiles
 	GameOver
 )
 
@@ -31,9 +40,9 @@ var TypeToString = map[Type]string{
 	OK:         "ok",
 	Error:      "error",
 	Exit:       "exit",
-	Connect:    "connect",
 	JoinGame:   "joinGame",
 	GameStatus: "gameStatus",
+	GameReady:  "gameReady",
 	NewGame:    "newGame",
 	Start:      "start",
 	NewTiles:   "newTiles",
@@ -43,6 +52,7 @@ var TypeToString = map[Type]string{
 	Score:      "score",
 	Notify:     "notify",
 	Invalid:    "invalid",
+	OutOfTiles: "outOfTiles",
 	GameOver:   "gameOver",
 }
 

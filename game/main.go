@@ -1,12 +1,13 @@
 package game
 
 import (
+	"log"
+
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 type MsgGameRequest struct {
-	Type msg.Type
-	C    *Client
+	C *Client
 }
 
 type MsgFromClient struct {
@@ -18,10 +19,20 @@ type MsgFromClient struct {
 type MsgFromGame struct {
 	Type msg.Type
 	G    *Game
-	data interface{}
+	Data interface{}
 }
 
 type WebSocketConn interface {
 	ReadMessage() (int, []byte, error)
 	WriteMessage(int, []byte) error
+}
+
+func AddAPlayerToAGame() {
+	for {
+		r := <-NewGameChan
+		log.Println("NewGameChan: Adding client to game")
+		//TODO allow for multiple games
+		GlobalGame.AddPlayerChan <- r.C
+		r.C.AssignGameChan <- GlobalGame
+	}
 }

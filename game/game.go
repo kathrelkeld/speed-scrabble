@@ -9,11 +9,22 @@ import (
 var GlobalGame = NewGame()
 var NewGameChan = make(chan MsgGameRequest)
 
+type gameState int
+
+const (
+	StateInit gameState = iota
+	StateRunning
+	StateWaitingGameReady
+	StateWaitingScores
+	StateOver
+)
+
 type Game struct {
-	name      string
-	tiles     []Tile
-	clients   map[*Client]bool
-	isRunning bool
+	name            string
+	tiles           []Tile
+	clients         map[*Client]bool
+	state           gameState
+	startingTileCnt int
 
 	//Accessible by other routines; Not allowed to change.
 	ToGameChan    chan MsgFromClient
@@ -21,13 +32,13 @@ type Game struct {
 }
 
 func NewGame() *Game {
-	g := Game{}
-	g.tiles = newTiles()
-	g.isRunning = false
-	g.clients = make(map[*Client]bool)
-	g.ToGameChan = make(chan MsgFromClient)
-	g.AddPlayerChan = make(chan *Client)
-	return &g
+	return &Game{
+		tiles:           newTiles(),
+		clients:         make(map[*Client]bool),
+		ToGameChan:      make(chan MsgFromClient),
+		AddPlayerChan:   make(chan *Client),
+		startingTileCnt: 12,
+	}
 }
 
 func (g *Game) Cleanup() {
@@ -58,10 +69,10 @@ func (g *Game) allClientsTrue() bool {
 	return result
 }
 
-func (g *Game) sendToAllClients(t msg.Type) {
-	log.Println("Sending to all clients.")
+func (g *Game) sendToAllClients(t msg.Type, d interface{}) {
+	log.Printf("Sending %s to all clients.\n", t)
 	for c := range g.clients {
-		c.ToClientChan <- MsgFromGame{t, g, nil}
+		c.ToClientChan <- MsgFromGame{t, g, d}
 	}
 }
 
@@ -79,68 +90,65 @@ func (g *Game) hearFromAllClients(t msg.Type) {
 	}
 }
 
+func (g *Game) resetClientReply() {
+	for c := range g.clients {
+		g.clients[c] = false
+	}
+}
+
 func (g *Game) Run() {
+	defer g.Cleanup()
 	for {
 		select {
 		case c := <-g.AddPlayerChan:
 			log.Println("runGame: Adding client to game")
 			g.clients[c] = false
-			g.sendGameStatus()
 		case cm := <-g.ToGameChan:
 			log.Println("Game got client message of type:", cm.Type)
 			switch cm.Type {
-			case msg.Start:
-				if g.isRunning { //Game is already running!
-					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, nil}
-					continue
-				}
-				g.sendToAllClients(msg.NewGame)
-				g.hearFromAllClients(msg.Start)
+			case msg.GameReady:
+				// Player is initiating a new game.
 				g.newTiles()
-				g.sendToAllClients(msg.Start)
-				g.isRunning = true
-			case msg.NewTiles:
-				if !g.isRunning {
-					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, nil}
+				g.resetClientReply()
+				g.state = StateWaitingGameReady
+				g.sendToAllClients(msg.GameReady, nil)
+			case msg.Start:
+				// Player is ready to start playing.
+				if g.state != StateWaitingGameReady {
+					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "unexpected message"}
 					continue
 				}
-				//TODO: handle confirm from all games
-				m := MsgFromGame{msg.OK, g, g.tiles[:12]}
-				cm.C.ToClientChan <- m
-			case msg.AddTile:
-				if !g.isRunning {
-					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "Game is not running"}
-					continue
+				g.clients[cm.C] = true
+				// TODO: add timeout
+				if g.allClientsTrue() {
+					g.state = StateRunning
+					g.sendToAllClients(msg.Start, nil)
 				}
-				if cm.C.TilesServedCount >= len(g.tiles) {
-					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "No more tiles to serve"}
-					continue
-				}
-				m := MsgFromGame{msg.OK, g,
-					g.tiles[cm.C.TilesServedCount]}
-				cm.C.ToClientChan <- m
 			case msg.GameOver:
-				//TODO: get scores to determine a winner
-				g.sendToAllClients(msg.GameOver)
-				g.hearFromAllClients(msg.OK)
-				g.isRunning = false
+				g.resetClientReply()
+				g.sendToAllClients(msg.GameOver, nil)
+				g.state = StateWaitingScores
+			case msg.Score:
+				if g.state != StateWaitingScores {
+					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "unexpected message"}
+					continue
+				}
+				g.clients[cm.C] = true
+				// TODO: add timeout
+				if g.allClientsTrue() {
+					g.state = StateRunning
+					//TODO: get scores to determine a winner
+					g.sendToAllClients(msg.Score, nil)
+					g.state = StateOver
+				}
 			case msg.Exit:
 				delete(g.clients, cm.C)
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {
-					g.isRunning = false
+					g.state = StateOver
+					return
 				}
 			}
 		}
-	}
-}
-
-func AddAPlayerToAGame() {
-	for {
-		r := <-NewGameChan
-		log.Println("NewGameChan: Adding client to game")
-		//TODO allow for multiple games
-		GlobalGame.AddPlayerChan <- r.C
-		r.C.AssignGameChan <- GlobalGame
 	}
 }

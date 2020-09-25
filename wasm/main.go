@@ -51,7 +51,6 @@ func websocketGet() js.Func {
 func newSocketWrapper() js.Func {
 	onOpen := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("websocket open")
-		// TODO: send init here
 		joinGame()
 		return nil
 	})
