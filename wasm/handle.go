@@ -102,38 +102,31 @@ func newTileLoc(v string) *TileLoc {
 	}
 }
 
-func onTile(l canvasLoc) *TileLoc {
-	for _, t := range manager.tiles {
-		if l.X > t.canvasLoc.X && l.X < t.canvasLoc.X+manager.tileSize.X &&
-			l.Y > t.canvasLoc.Y && l.Y < t.canvasLoc.Y+manager.tileSize.Y {
-			return t
-		}
-	}
-	return nil
-}
-
-func coordsOnTray(gl gridLoc) canvasLoc {
-	return canvasLoc{
+func addToTray(t *TileLoc, gl gridLoc) {
+	manager.tray[gl.Y][gl.X] = t
+	t.region = OnTray
+	t.gridLoc = gl
+	t.canvasLoc = canvasLoc{
 		manager.trayLoc.X + manager.tileSize.X*gl.X,
 		manager.trayLoc.Y + manager.tileSize.Y*gl.Y,
 	}
 }
 
-func coordsOnBoard(gl gridLoc) canvasLoc {
-	return canvasLoc{
+func addToBoard(t *TileLoc, gl gridLoc) {
+	manager.board[gl.X][gl.Y] = t
+	t.region = OnBoard
+	t.gridLoc = gl
+	t.canvasLoc = canvasLoc{
 		manager.boardLoc.X + manager.tileSize.X*gl.X,
 		manager.boardLoc.Y + manager.tileSize.Y*gl.Y,
 	}
 }
 
 func sendTileToTray(t *TileLoc) {
-	t.region = OnTray
 	for j := 0; j < len(manager.tray); j++ {
 		for i := 0; i < len(manager.tray[0]); i++ {
 			if manager.tray[j][i] == nil {
-				manager.tray[j][i] = t
-				t.gridLoc = gridLoc{i, j}
-				t.canvasLoc = coordsOnTray(t.gridLoc)
+				addToTray(t, gridLoc{i, j})
 				return
 			}
 		}
@@ -141,8 +134,7 @@ func sendTileToTray(t *TileLoc) {
 	// TODO expand downward if needed
 	manager.tray[0] = append(manager.tray[0], t)
 	manager.traySize.X += 1
-	t.gridLoc = gridLoc{len(manager.tray[0]) - 1, 0}
-	t.canvasLoc = coordsOnTray(t.gridLoc)
+	addToTray(t, gridLoc{len(manager.tray[0]) - 1, 0})
 }
 
 func sendAllTilesToTray() js.Func {
@@ -154,6 +146,16 @@ func sendAllTilesToTray() js.Func {
 		}
 		return nil
 	})
+}
+
+func onTile(l canvasLoc) *TileLoc {
+	for _, t := range manager.tiles {
+		if l.X > t.canvasLoc.X && l.X < t.canvasLoc.X+manager.tileSize.X &&
+			l.Y > t.canvasLoc.Y && l.Y < t.canvasLoc.Y+manager.tileSize.Y {
+			return t
+		}
+	}
+	return nil
 }
 
 func initializeListeners() {
@@ -229,11 +231,9 @@ func releaseTile(l canvasLoc) {
 		if manager.board[t.gridLoc.Y][t.gridLoc.X] != nil {
 			// TODO swap the tiles?
 			sendTileToTray(t)
+		} else {
+			addToBoard(t, boardCoords)
 		}
-		manager.board[t.gridLoc.Y][t.gridLoc.X] = t
-		t.gridLoc = boardCoords
-		t.canvasLoc = coordsOnBoard(boardCoords)
-		t.region = OnBoard
 	} else if isInTarget(l, manager.trayLoc, manager.trayEnd) {
 		// Release tile onto tray.
 		trayCoords := gridLoc{
@@ -242,11 +242,9 @@ func releaseTile(l canvasLoc) {
 		}
 		if manager.board[t.gridLoc.Y][t.gridLoc.X] != nil {
 			sendTileToTray(t)
+		} else {
+			addToTray(t, trayCoords)
 		}
-		manager.board[t.gridLoc.Y][t.gridLoc.X] = t
-		t.gridLoc = trayCoords
-		t.canvasLoc = coordsOnTray(trayCoords)
-		t.region = OnTray
 	} else {
 		// Return untracked tile to tray.
 		sendTileToTray(t)
