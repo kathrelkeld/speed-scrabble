@@ -33,6 +33,8 @@ func StartNewGame(toAssignerChan chan *Game, name string) *Game {
 }
 
 func (g *Game) Cleanup() {
+	g.state = StateOver
+	g.ToAssignerChan <- g
 	close(g.ToGameChan)
 	close(g.AddPlayerChan)
 }
@@ -138,8 +140,6 @@ func (g *Game) Run() {
 				delete(g.clients, cm.C)
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {
-					g.state = StateOver
-					g.ToAssignerChan <- g
 					return
 				}
 			}

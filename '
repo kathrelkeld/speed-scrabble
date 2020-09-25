@@ -33,7 +33,7 @@ func StartNewClient(conn *websocket.Conn, ga *GameAssigner) *Client {
 		ToClientChan:   make(chan MsgFromGame),
 		AssignGameChan: make(chan *Game),
 		NewGameChan:    ga.NewGameChan,
-		quit:           make(chan struct{}),
+		quit:           make(chan struct{})
 	}
 	go c.Run()
 	return c

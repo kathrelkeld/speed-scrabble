@@ -23,8 +23,7 @@ func newConnection(w http.ResponseWriter, req *http.Request) {
 		log.Println("error making connection:", err)
 		return
 	}
-	c := game.NewClient(conn, ga)
-	go c.Run()
+	game.StartNewClient(conn, ga)
 }
 
 func main() {

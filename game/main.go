@@ -39,13 +39,14 @@ func StartGameAssigner() *GameAssigner {
 // Run is the main function of this package, to be called by the server.
 // Accept game requests from clients, and create/destroy games.
 func (ga *GameAssigner) Run() {
-	GlobalGame := StartNewGame(ga.GameExitChan, "global")
-	ga.games["global"] = GlobalGame
 	for {
 		select {
 		case req := <-ga.NewGameChan:
+			if ga.games["global"] == nil {
+				ga.games["global"] = StartNewGame(ga.GameExitChan, "global")
+			}
 			log.Println("GameAssigner assigning client to game")
-			req.C.AssignGameChan <- GlobalGame
+			req.C.AssignGameChan <- ga.games["global"]
 		case game := <-ga.GameExitChan:
 			delete(ga.games, game.name)
 		case <-ga.exitChan:
