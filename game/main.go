@@ -6,16 +6,6 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-type gameState int
-
-const (
-	StateInit gameState = iota
-	StateRunning
-	StateWaitingRoundReady
-	StateWaitingScores
-	StateOver
-)
-
 // A GameAssigner manages game assignments.
 // TODO make game assigner keep track of active clients too.
 type GameAssigner struct {

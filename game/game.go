@@ -6,6 +6,19 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
+// gameState indicates what the game is currently doing or waiting on.
+type gameState int
+
+const (
+	StateInit              gameState = iota // In between rounds.
+	StateWaitingRoundReady                  // Waiting for all players to be ready.
+	StateRunning                            // Players playing.
+	StateWaitingScores                      // Waiting for all players to submit scores.
+	StateOver                               // Game over or exiting.
+)
+
+// A Game represents a single game with at least one player, which may last for multiple
+// rounds.
 type Game struct {
 	name            string
 	tiles           []Tile
@@ -19,6 +32,7 @@ type Game struct {
 	quit           chan struct{}
 }
 
+// StartNewGame is used by the GameAssigner to make a new game.
 func StartNewGame(toAssignerChan chan *Game, name string) *Game {
 	game := &Game{
 		name:            name,
@@ -45,6 +59,8 @@ func (g *Game) Close() {
 	close(g.quit)
 }
 
+// Add player adds the given player to this game.
+// TODO handle whether to send tiles based on game state.
 func (g *Game) AddPlayer(c *Client) {
 	log.Println("runGame: Adding client to game")
 	g.clients[c] = false
@@ -52,6 +68,7 @@ func (g *Game) AddPlayer(c *Client) {
 	c.game = g
 }
 
+// sendGameInfo sends information about this game to each player.
 func (g *Game) sendGameInfo() {
 	var names []string
 	for c := range g.clients {
@@ -63,6 +80,14 @@ func (g *Game) sendGameInfo() {
 	}
 }
 
+// resetClientReply resets the flags used check if clients have reponded during a waiting phase.
+func (g *Game) resetClientReply() {
+	for c := range g.clients {
+		g.clients[c] = false
+	}
+}
+
+// allClientsTrue returns whether all clients have checked in during a waiting phase.
 func (g *Game) allClientsTrue() bool {
 	result := true
 	for _, value := range g.clients {
@@ -71,6 +96,7 @@ func (g *Game) allClientsTrue() bool {
 	return result
 }
 
+// sendToAllClients sends the given message type to all players.
 func (g *Game) sendToAllClients(t msg.Type, d interface{}) {
 	log.Printf("Sending %s to all clients.\n", t)
 	for c := range g.clients {
@@ -78,6 +104,7 @@ func (g *Game) sendToAllClients(t msg.Type, d interface{}) {
 	}
 }
 
+// sendToAllClientsExcept sends the given message type to all players except the given player.
 func (g *Game) sendToAllClientsExcept(exc *Client, t msg.Type, d interface{}) {
 	log.Printf("Sending %s to all clients.\n", t)
 	for c := range g.clients {
@@ -87,12 +114,7 @@ func (g *Game) sendToAllClientsExcept(exc *Client, t msg.Type, d interface{}) {
 	}
 }
 
-func (g *Game) resetClientReply() {
-	for c := range g.clients {
-		g.clients[c] = false
-	}
-}
-
+// Run handles incoming messages and directs gameflow.
 func (g *Game) Run() {
 	for {
 		select {

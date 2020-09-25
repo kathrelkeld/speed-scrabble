@@ -9,20 +9,18 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-// A Client represents a single player.  The client interacts with the player's page
-// (via websocket), with a single game (via channels), and with the overall game state
-// (via channels, e.g. starting new games).
+// A Client represents a single player.  The client handles websocket interactions
+// and keeping state for this player.
 type Client struct {
 	conn        *websocket.Conn
 	game        *Game
 	tilesServed int
 
-	Name           string
-	NewGameChan    chan MsgGameRequest
-	AssignGameChan chan *Game
+	Name        string
+	NewGameChan chan MsgGameRequest
 }
 
-// NewClient creates a new Client with the given websocket connection and game assigner.
+// StartNewClient creates a new Client with the given websocket connection and game assigner.
 func StartNewClient(conn *websocket.Conn, ga *GameAssigner) *Client {
 	c := &Client{
 		conn:        conn,
@@ -32,6 +30,7 @@ func StartNewClient(conn *websocket.Conn, ga *GameAssigner) *Client {
 	return c
 }
 
+// Close is used to request the Client exit gracefully.
 func (c *Client) Close() {
 	if c.game != nil {
 		c.game.ToGameChan <- MsgFromClient{msg.Exit, c, nil}
