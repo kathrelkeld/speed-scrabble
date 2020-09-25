@@ -111,8 +111,8 @@ type Score struct {
 type Board [][]*Tile
 
 func (b Board) value(v Vec) string {
-	t := b[v.X][v.Y]
-	if t != nil {
+	t := b[v.Y][v.X]
+	if t == nil {
 		return ""
 	}
 	return t.Value

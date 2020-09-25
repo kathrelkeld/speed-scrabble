@@ -14,7 +14,7 @@ func drawTile(t *TileLoc) {
 	ctx.Call("fillRect", t.canvasLoc.X, t.canvasLoc.Y, size.X, size.Y)
 	ctx.Set("fillStyle", "red")
 	ctx.Set("font", fmt.Sprintf("%v", size.X)+"px Arial")
-	ctx.Call("fillText", t.value, t.canvasLoc.X, t.canvasLoc.Y+manager.tileSize.Y)
+	ctx.Call("fillText", t.Value, t.canvasLoc.X, t.canvasLoc.Y+manager.tileSize.Y)
 }
 
 func drawTiles() {

@@ -79,7 +79,7 @@ func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 }
 
 type TileLoc struct {
-	value      string
+	Value      string
 	region     int
 	gridLoc    gridLoc
 	canvasLoc  canvasLoc
@@ -95,7 +95,7 @@ const (
 
 func newTileLoc(v string) *TileLoc {
 	return &TileLoc{
-		value:     v,
+		Value:     v,
 		region:    OnNone,
 		gridLoc:   gridLoc{-1, -1},
 		canvasLoc: canvasLoc{-1, -1},
@@ -271,7 +271,7 @@ func reload() js.Func {
 func verify() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		// TODO: add tiles
-		m, _ := msg.NewSocketData(msg.Verify, nil)
+		m, _ := msg.NewSocketData(msg.Verify, manager.board)
 		websocketSend(m)
 		return nil
 	})
