@@ -10,38 +10,59 @@ import (
 
 var manager *GameManager
 
-type GameManager struct {
-	board     *game.Board
-	tiles     []*TileLoc
-	boardSize game.Vec
-	traySize  game.Vec
-	tileCnt   int
-	tileSize  game.Vec
+type sizeV game.Vec
+type gridLoc game.Vec
+type canvasLoc game.Vec
+type board [][]*TileLoc
+
+func newBoard(size sizeV) *board {
+	var b board
+	for i := 0; i < size.Y; i++ {
+		b = append(b, []*TileLoc{})
+		for j := 0; j < size.X; j++ {
+			b[i] = append(b[i], nil)
+		}
+	}
+	return &b
 }
 
-func newGameManager(boardSize game.Vec, tileCnt int) *GameManager {
+type GameManager struct {
+	board     *board
+	tray      *board
+	tiles     []*TileLoc
+	boardSize sizeV
+	traySize  sizeV
+	tileCnt   int
+	tileSize  sizeV
+}
+
+func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
+	traySize := sizeV{tileCnt, 1}
 	return &GameManager{
-		board:     game.NewBoard(boardSize),
+		board:     newBoard(boardSize),
+		tray:      newBoard(traySize),
 		boardSize: boardSize,
 		tileCnt:   tileCnt,
-		traySize:  game.Vec{tileCnt, 1},
-		tileSize:  game.Vec{25, 25},
+		traySize:  traySize,
+		tileSize:  sizeV{25, 25},
 	}
 }
 
 type TileLoc struct {
-	value  string
-	inPlay bool
-	moving bool
-	loc    game.Vec
+	value   string
+	onBoard bool
+	onTray  bool
+	moving  bool
+	loc     gridLoc
 }
 
 func newTileLoc(v string) *TileLoc {
 	return &TileLoc{
-		value:  v,
-		inPlay: false,
-		moving: false,
-		loc:    game.Vec{-1, -1},
+		value:   v,
+		onBoard: false,
+		onTray:  false,
+		moving:  false,
+		loc:     gridLoc{-1, -1},
 	}
 }
 
@@ -89,7 +110,7 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 			// TODO delete old manager
 		}
 		// TODO tie to actual game size
-		manager = newGameManager(game.Vec{16, 16}, 16)
+		manager = newGameManager(sizeV{16, 16}, 16)
 		var tiles []*game.Tile
 		err := json.Unmarshal(data, &tiles)
 		if err != nil {

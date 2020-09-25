@@ -110,17 +110,6 @@ type Score struct {
 
 type Board [][]*Tile
 
-func NewBoard(size Vec) *Board {
-	var b Board
-	for i := 0; i < size.Y; i++ {
-		b = append(b, []*Tile{})
-		for j := 0; j < size.X; j++ {
-			b[i] = append(b[i], nil)
-		}
-	}
-	return &b
-}
-
 func (b Board) value(v Vec) string {
 	t := b[v.X][v.Y]
 	if t != nil {
