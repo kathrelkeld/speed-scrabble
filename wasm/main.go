@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/kathrelkeld/speed-scrabble/game"
+	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 var onOk []js.Func
@@ -13,7 +13,7 @@ func websocketOnOk(f js.Func) {
 	onOk = append(onOk, f)
 }
 
-func websocketSendEmpty(t game.MessageType) {
+func websocketSendEmpty(t msg.Type) {
 	websocketSend([]byte{byte(t)})
 }
 
@@ -39,7 +39,7 @@ func websocketGet() js.Func {
 		}
 		m := []byte(args[0].Get("data").String())
 		fmt.Println(m)
-		t := game.MessageType(m[0])
+		t := msg.Type(m[0])
 		m = m[1:]
 
 		// TODO handle error
@@ -52,10 +52,10 @@ func newSocketWrapper() js.Func {
 	onOpen := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("websocket open")
 		// TODO: send init here
-		m, _ := game.NewSocketMsg(game.MsgJoinGame, "NAME")
+		m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
 		websocketSend(m)
 		websocketOnOk(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			websocketSendEmpty(game.MsgStart)
+			websocketSendEmpty(msg.Start)
 			return nil
 		}))
 		return nil

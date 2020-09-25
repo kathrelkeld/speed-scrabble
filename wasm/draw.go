@@ -3,14 +3,12 @@ package main
 import (
 	"fmt"
 	"syscall/js"
-
-	"github.com/kathrelkeld/speed-scrabble/game"
 )
 
 var ctx js.Value // set during page setUp
 
-func drawTile(t *game.Tile, v canvasLoc) {
-	fmt.Println("drawing tile", t.Value)
+func drawTile(t TileLoc, v canvasLoc) {
+	fmt.Println("drawing tile", t.value)
 	ctx.Call("fillRect", 10, 10, 100, 100)
 }
 

@@ -2,10 +2,12 @@ package game
 
 import (
 	"log"
+
+	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 var GlobalGame = NewGame()
-var NewGameChan = make(chan GameRequest)
+var NewGameChan = make(chan MsgGameRequest)
 
 type Game struct {
 	name      string
@@ -14,7 +16,7 @@ type Game struct {
 	isRunning bool
 
 	//Accessible by other routines; Not allowed to change.
-	ToGameChan    chan FromClientMsg
+	ToGameChan    chan MsgFromClient
 	AddPlayerChan chan *Client
 }
 
@@ -23,7 +25,7 @@ func NewGame() *Game {
 	g.tiles = newTiles()
 	g.isRunning = false
 	g.clients = make(map[*Client]bool)
-	g.ToGameChan = make(chan FromClientMsg)
+	g.ToGameChan = make(chan MsgFromClient)
 	g.AddPlayerChan = make(chan *Client)
 	return &g
 }
@@ -42,9 +44,9 @@ func (g *Game) sendGameStatus() {
 	for c := range g.clients {
 		names = append(names, c.Name)
 	}
-	status := GameStatus{g.name, names}
+	status := msg.GameInfo{g.name, names}
 	for c := range g.clients {
-		c.ToClientChan <- FromGameMsg{MsgGameStatus, g, status}
+		c.ToClientChan <- MsgFromGame{msg.GameStatus, g, status}
 	}
 }
 
@@ -56,24 +58,24 @@ func (g *Game) allClientsTrue() bool {
 	return result
 }
 
-func (g *Game) sendToAllClients(t MessageType) {
+func (g *Game) sendToAllClients(t msg.Type) {
 	log.Println("Sending to all clients.")
 	for c := range g.clients {
-		c.ToClientChan <- FromGameMsg{t, g, nil}
+		c.ToClientChan <- MsgFromGame{t, g, nil}
 	}
 }
 
-func (g *Game) hearFromAllClients(t MessageType) {
+func (g *Game) hearFromAllClients(t msg.Type) {
 	log.Println("Hearing from all clients.")
 	for c := range g.clients {
 		g.clients[c] = false
 	}
 	for !g.allClientsTrue() {
 		cm := <-g.ToGameChan
-		if cm.typ != t {
-			cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
+		if cm.Type != t {
+			cm.C.ToClientChan <- MsgFromGame{msg.Error, g, nil}
 		}
-		g.clients[cm.c] = true
+		g.clients[cm.C] = true
 	}
 }
 
@@ -85,45 +87,45 @@ func (g *Game) Run() {
 			g.clients[c] = false
 			g.sendGameStatus()
 		case cm := <-g.ToGameChan:
-			log.Println("Game got client message of type:", cm.typ)
-			switch cm.typ {
-			case MsgStart:
+			log.Println("Game got client message of type:", cm.Type)
+			switch cm.Type {
+			case msg.Start:
 				if g.isRunning { //Game is already running!
-					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
+					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, nil}
 					continue
 				}
-				g.sendToAllClients(MsgNewGame)
-				g.hearFromAllClients(MsgStart)
+				g.sendToAllClients(msg.NewGame)
+				g.hearFromAllClients(msg.Start)
 				g.newTiles()
-				g.sendToAllClients(MsgStart)
+				g.sendToAllClients(msg.Start)
 				g.isRunning = true
-			case MsgNewTiles:
+			case msg.NewTiles:
 				if !g.isRunning {
-					cm.c.ToClientChan <- FromGameMsg{MsgError, g, nil}
+					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, nil}
 					continue
 				}
 				//TODO: handle confirm from all games
-				m := FromGameMsg{MsgOK, g, g.tiles[:12]}
-				cm.c.ToClientChan <- m
-			case MsgAddTile:
+				m := MsgFromGame{msg.OK, g, g.tiles[:12]}
+				cm.C.ToClientChan <- m
+			case msg.AddTile:
 				if !g.isRunning {
-					cm.c.ToClientChan <- FromGameMsg{MsgError, g, "Game is not running"}
+					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "Game is not running"}
 					continue
 				}
-				if cm.c.TilesServedCount >= len(g.tiles) {
-					cm.c.ToClientChan <- FromGameMsg{MsgError, g, "No more tiles to serve"}
+				if cm.C.TilesServedCount >= len(g.tiles) {
+					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "No more tiles to serve"}
 					continue
 				}
-				m := FromGameMsg{MsgOK, g,
-					g.tiles[cm.c.TilesServedCount]}
-				cm.c.ToClientChan <- m
-			case MsgGameOver:
+				m := MsgFromGame{msg.OK, g,
+					g.tiles[cm.C.TilesServedCount]}
+				cm.C.ToClientChan <- m
+			case msg.GameOver:
 				//TODO: get scores to determine a winner
-				g.sendToAllClients(MsgGameOver)
-				g.hearFromAllClients(MsgOK)
+				g.sendToAllClients(msg.GameOver)
+				g.hearFromAllClients(msg.OK)
 				g.isRunning = false
-			case MsgExit:
-				delete(g.clients, cm.c)
+			case msg.Exit:
+				delete(g.clients, cm.C)
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {
 					g.isRunning = false

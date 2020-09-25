@@ -2,14 +2,14 @@ package game
 
 import (
 	"encoding/json"
-	//"log"
-	//"reflect"
 	"testing"
+
+	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 type FakeWebSocketConn struct {
-	socketMsgChan chan SocketMsg
-	lastSent      SocketMsg
+	socketMsgChan chan msg.Socket
+	lastSent      msg.Socket
 	t             *testing.T
 }
 
@@ -23,7 +23,7 @@ func (conn FakeWebSocketConn) ReadMessage() (int, []byte, error) {
 }
 
 func (conn FakeWebSocketConn) WriteMessage(i int, b []byte) error {
-	var m SocketMsg
+	var m msg.Socket
 	err := json.Unmarshal(b, &m)
 	if err != nil {
 		conn.t.Errorf("Error while unmarshalling %v", string(b))
@@ -34,7 +34,7 @@ func (conn FakeWebSocketConn) WriteMessage(i int, b []byte) error {
 // Call this instead of handling an incoming websocket request
 func runTestClient(t *testing.T) (*Client, FakeWebSocketConn) {
 	c := makeNewClient()
-	conn := FakeWebSocketConn{make(chan SocketMsg), SocketMsg{}, t}
+	conn := FakeWebSocketConn{make(chan msg.Socket), msg.Socket{}, t}
 	c.conn = conn
 	go c.readSocketMsgs()
 	go c.runClient()
@@ -44,7 +44,7 @@ func runTestClient(t *testing.T) (*Client, FakeWebSocketConn) {
 func TestExitMessage(t *testing.T) {
 	_, conn := runTestClient(t)
 	defer close(conn.socketMsgChan)
-	m, _ := newSocketMsg(MsgExit, nil)
+	m, _ := msg.NewSocket(msg.Exit, nil)
 	conn.socketMsgChan <- m
 }
 
@@ -53,8 +53,8 @@ func TestSynchonousStart(t *testing.T) {
 	defer close(connA.socketMsgChan)
 	_, connB := runTestClient(t)
 	defer close(connB.socketMsgChan)
-	m, _ := newSocketMsg(MsgJoinGame, nil)
+	m, _ := msg.NewSocket(msg.JoinGame, nil)
 	connA.socketMsgChan <- m
 	connB.socketMsgChan <- m
-	m, _ = newSocketMsg(MsgStart, nil)
+	m, _ = msg.NewSocket(msg.Start, nil)
 }

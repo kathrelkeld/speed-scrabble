@@ -5,14 +5,24 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/kathrelkeld/speed-scrabble/game"
+	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 var manager *GameManager
 
-type sizeV game.Vec
-type gridLoc game.Vec
-type canvasLoc game.Vec
+type Vec struct {
+	X int
+	Y int
+}
+
+type Tile struct {
+	Value  string
+	Points int
+}
+
+type sizeV Vec
+type gridLoc Vec
+type canvasLoc Vec
 type board [][]*TileLoc
 
 func newBoard(size sizeV) *board {
@@ -79,7 +89,7 @@ func sendTilesToTray() js.Func {
 
 func requestNewTile() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		websocketSendEmpty(game.MsgAddTile)
+		websocketSendEmpty(msg.AddTile)
 		return nil
 	})
 }
@@ -91,27 +101,27 @@ func reload() js.Func {
 func verify() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		// TODO: add tiles
-		m, _ := game.NewSocketMsg(game.MsgVerify, nil)
+		m, _ := msg.NewSocketData(msg.Verify, nil)
 		websocketSend(m)
 		return nil
 	})
 }
 
-func handleSocketMsg(t game.MessageType, data []byte) int {
+func handleSocketMsg(t msg.Type, data []byte) int {
 	switch t {
-	case game.MsgOK:
+	case msg.OK:
 		if len(onOk) > 0 {
 			onOk[0].Invoke()
 			onOk = onOk[1:]
 		}
-	case game.MsgError:
-	case game.MsgStart:
+	case msg.Error:
+	case msg.Start:
 		if manager != nil {
 			// TODO delete old manager
 		}
 		// TODO tie to actual game size
 		manager = newGameManager(sizeV{16, 16}, 16)
-		var tiles []*game.Tile
+		var tiles []*Tile
 		err := json.Unmarshal(data, &tiles)
 		if err != nil {
 			fmt.Println("Error reading game status:", err)
@@ -122,8 +132,8 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 			manager.tiles = append(manager.tiles, newTileLoc(tile.Value))
 		}
 		draw()
-	case game.MsgAddTile:
-		var tile game.Tile
+	case msg.AddTile:
+		var tile Tile
 		err := json.Unmarshal(data, &t)
 		if err != nil {
 			fmt.Println("Error reading game status:", err)
@@ -131,10 +141,10 @@ func handleSocketMsg(t game.MessageType, data []byte) int {
 		}
 		manager.tiles = append(manager.tiles, newTileLoc(tile.Value))
 		fmt.Println("Adding new tile:", tile.Value)
-	case game.MsgScore:
+	case msg.Score:
 
-	case game.MsgGameStatus:
-		var s game.GameStatus
+	case msg.GameStatus:
+		var s msg.GameInfo
 		err := json.Unmarshal(data, &s)
 		if err != nil {
 			fmt.Println("Error reading game status:", err)

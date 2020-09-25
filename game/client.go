@@ -5,31 +5,33 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 type Client struct {
 	conn        WebSocketConn
-	socketChan  chan SocketMsg
+	socketChan  chan msg.SocketData
 	tilesServed []Tile
 	maxScore    int
-	toGameChan  chan FromClientMsg
+	toGameChan  chan MsgFromClient
 	validGame   bool
 	running     bool
 
 	//Accessible by other routines; Not allowed to change.
 	Name             string
 	TilesServedCount int
-	ToClientChan     chan FromGameMsg
+	ToClientChan     chan MsgFromGame
 	AssignGameChan   chan *Game
 }
 
 func NewClient(conn WebSocketConn) *Client {
 	c := Client{}
 	c.conn = conn
-	c.socketChan = make(chan SocketMsg)
+	c.socketChan = make(chan msg.SocketData)
 	c.validGame = false
 	c.running = false
-	c.ToClientChan = make(chan FromGameMsg)
+	c.ToClientChan = make(chan MsgFromGame)
 	c.AssignGameChan = make(chan *Game)
 	return &c
 }
@@ -69,12 +71,12 @@ func (c *Client) getMaxScore() int {
 }
 
 type ClientMessage struct {
-	typ        MessageType
-	clientChan chan MessageType
+	typ        msg.Type
+	clientChan chan msg.Type
 }
 
 func receiveClientMessages(gameChan chan ClientMessage,
-	clientChan, endChan chan MessageType) {
+	clientChan, endChan chan msg.Type) {
 	for {
 		select {
 		case _ = <-endChan:
@@ -97,17 +99,17 @@ func unmarshalString(b []byte) string {
 	return s
 }
 
-func (c *Client) ReadSocketMsg() (SocketMsg, error) {
+func (c *Client) ReadSocketMsg() (msg.SocketData, error) {
 	// TODO check error
 	_, b, err := c.conn.ReadMessage()
 	if err != nil {
 		log.Println("Bad message", err)
-		return SocketMsg{}, err
+		return msg.SocketData{}, err
 	}
-	t := MessageType(b[0])
+	t := msg.Type(b[0])
 	b = b[1:]
 
-	return SocketMsg{t, b}, nil
+	return msg.SocketData{t, b}, nil
 }
 
 func (c *Client) ReadSocketMsgs() {
@@ -122,8 +124,8 @@ func (c *Client) ReadSocketMsgs() {
 	}
 }
 
-func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
-	b, err := NewSocketMsg(t, d)
+func (c *Client) sendSocketMsg(t msg.Type, d interface{}) error {
+	b, err := msg.NewSocketData(t, d)
 	if err != nil {
 		// TODO handle error
 		return err
@@ -138,7 +140,7 @@ func (c *Client) sendSocketMsg(t MessageType, d interface{}) error {
 }
 
 func (c *Client) onRunClientExit() {
-	c.toGameChan <- FromClientMsg{MsgExit, c, nil}
+	c.toGameChan <- MsgFromClient{msg.Exit, c, nil}
 	c.cleanup()
 }
 
@@ -154,86 +156,86 @@ func (c *Client) handleSendBoard(b []byte) Score {
 
 func (c *Client) handleMsgStart() {
 	log.Println("Starting game")
-	c.toGameChan <- FromClientMsg{MsgStart, c, nil}
+	c.toGameChan <- MsgFromClient{msg.Start, c, nil}
 	_ = <-c.ToClientChan
-	c.toGameChan <- FromClientMsg{MsgNewTiles, c, nil}
+	c.toGameChan <- MsgFromClient{msg.NewTiles, c, nil}
 	tileMsg := <-c.ToClientChan
 	//TODO: handle MsgError
 	tiles := tileMsg.data.([]Tile)
 	log.Println("Sending tiles:", tiles)
-	c.sendSocketMsg(MsgStart, tiles)
+	c.sendSocketMsg(msg.Start, tiles)
 	c.newTiles(tiles)
 }
 
-func (c *Client) handleSocketMsg(m *SocketMsg) int {
+func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 	if !c.validGame {
 		switch m.Type { //For messages not involving a game.
-		case MsgStart:
+		case msg.Start:
 			log.Println("Got start message for invalid game")
-		case MsgJoinGame:
+		case msg.JoinGame:
 			//TODO: handle already in game case
 			c.Name = unmarshalString(m.Data)
-			NewGameChan <- GameRequest{MsgOK, c}
+			NewGameChan <- MsgGameRequest{msg.OK, c}
 			game := <-c.AssignGameChan
 			c.toGameChan = game.ToGameChan
 			c.validGame = true
-			c.sendSocketMsg(MsgOK, nil)
+			c.sendSocketMsg(msg.OK, nil)
 			return 0
 		}
 	}
 	if !c.validGame {
-		c.sendSocketMsg(MsgError, nil)
+		c.sendSocketMsg(msg.Error, nil)
 		log.Println("Cannot interact with an invalid game!")
 		return 1
 	}
 	switch m.Type { //For game interaction messages.
-	case MsgStart:
-		c.toGameChan <- FromClientMsg{MsgStart, c, nil}
-		//TODO: handle MsgError
+	case msg.Start:
+		c.toGameChan <- MsgFromClient{msg.Start, c, nil}
+		//TODO: handle msg.Error
 		_ = <-c.ToClientChan
 		c.handleMsgStart()
-	case MsgAddTile:
-		c.toGameChan <- FromClientMsg{MsgAddTile, c, nil}
+	case msg.AddTile:
+		c.toGameChan <- MsgFromClient{msg.AddTile, c, nil}
 		tileMsg := <-c.ToClientChan
-		if tileMsg.typ == MsgError {
+		if tileMsg.Type == msg.Error {
 			// TODO: send out of tiles error
 			log.Println(tileMsg.data)
 		} else {
 			tile := tileMsg.data.(Tile)
 			log.Println("Sending tile:", tile)
-			c.sendSocketMsg(MsgAddTile, tile)
+			c.sendSocketMsg(msg.AddTile, tile)
 			c.addTile(tile)
 		}
-	case MsgVerify:
+	case msg.Verify:
 		score := c.handleSendBoard(m.Data)
 		//TODO: uncomment this when code is stable
 		//if !score.Valid {
-		//c.sendSocketMsg(MsgError, score)
+		//c.sendSocketMsg(msg.Error, score)
 		//} else {
-		c.sendSocketMsg(MsgScore, score)
-		c.toGameChan <- FromClientMsg{MsgGameOver, c, nil}
+		c.sendSocketMsg(msg.Score, score)
+		c.toGameChan <- MsgFromClient{msg.GameOver, c, nil}
 		_ = <-c.ToClientChan
-		c.toGameChan <- FromClientMsg{MsgOK, c, nil}
+		c.toGameChan <- MsgFromClient{msg.OK, c, nil}
 		//}
-	case MsgSendBoard:
+	case msg.SendBoard:
 		score := c.handleSendBoard(m.Data)
-		c.sendSocketMsg(MsgScore, score)
-	case MsgExit:
-		c.toGameChan <- FromClientMsg{MsgExit, c, nil}
+		c.sendSocketMsg(msg.Score, score)
+	case msg.Exit:
+		c.toGameChan <- MsgFromClient{msg.Exit, c, nil}
 		return 1
 	}
 	return 0
 }
 
-func (c *Client) handleFromGameMsg(m *FromGameMsg) int {
-	switch m.typ {
-	case MsgNewGame:
+func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
+	switch m.Type {
+	case msg.NewGame:
 		c.handleMsgStart()
-	case MsgGameStatus:
-		c.sendSocketMsg(MsgGameStatus, m.data)
-	case MsgGameOver:
-		c.sendSocketMsg(MsgSendBoard, nil)
-		c.toGameChan <- FromClientMsg{MsgOK, c, nil}
+	case msg.GameStatus:
+		c.sendSocketMsg(msg.GameStatus, m.data)
+	case msg.GameOver:
+		c.sendSocketMsg(msg.SendBoard, nil)
+		c.toGameChan <- MsgFromClient{msg.OK, c, nil}
 	}
 	return 0
 }
@@ -241,7 +243,7 @@ func (c *Client) handleFromGameMsg(m *FromGameMsg) int {
 func (c *Client) Run() {
 	defer c.onRunClientExit()
 	c.running = true
-	c.sendSocketMsg(MsgOK, nil)
+	c.sendSocketMsg(msg.OK, nil)
 	for {
 		select {
 		case m := <-c.socketChan:
