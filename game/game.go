@@ -124,14 +124,15 @@ func (g *Game) Run() {
 					g.state = StateRunning
 					g.sendToAllClients(msg.Start, nil)
 				}
-			case msg.RoundOver:
-				g.resetClientReply()
-				g.sendToAllClients(msg.RoundOver, nil)
-				g.state = StateWaitingScores
 			case msg.Score:
+				score := cm.Data.(Score)
 				if g.state != StateWaitingScores {
-					cm.C.ToClientChan <- MsgFromGame{msg.Error, g, "unexpected message"}
-					continue
+					if !score.Win {
+						// TODO: should not have gotten first score from a non-winning hand
+					}
+					g.resetClientReply()
+					g.sendToAllClients(msg.RoundOver, nil)
+					g.state = StateWaitingScores
 				}
 				g.clients[cm.C] = true
 				// TODO: add timeout

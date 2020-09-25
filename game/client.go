@@ -17,7 +17,6 @@ type Client struct {
 	game        *Game
 	tilesServed int
 	state       gameState
-	lastScore   *Score
 
 	Name           string
 	ToClientChan   chan MsgFromGame
@@ -146,8 +145,7 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 		} else {
 			// Tell game that round is over.
 			c.state = StateWaitingScores
-			c.lastScore = &score
-			c.game.ToGameChan <- MsgFromClient{msg.RoundOver, c, nil}
+			c.game.ToGameChan <- MsgFromClient{msg.Score, c, &score}
 		}
 	case msg.SendBoard:
 		// Player sending board state after round is over.
@@ -161,6 +159,8 @@ func (c *Client) handleSocketMsg(m *msg.SocketData) int {
 	return 0
 }
 
+// handleFromGameMsg is called to process an incomming message from the game.
+// Returns 1 if the client needs to exit; else 0.
 func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	switch m.Type {
 	case msg.RoundReady:
@@ -178,15 +178,13 @@ func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 		// Game telling client to start playing.
 		c.tilesServed = c.game.startingTileCnt
 		tiles := c.game.tiles[:c.tilesServed]
-		log.Println("Sending tiles:", tiles)
 		c.state = StateRunning
 		c.sendSocketMsg(msg.Start, tiles)
+		log.Println("Sent tiles:", tiles)
 	case msg.RoundOver:
 		// Game telling client that someone won; asking for scores.
-		if c.state == StateWaitingScores {
-			// Client already has score.  Send it.
-			c.game.ToGameChan <- MsgFromClient{msg.Score, c, c.lastScore}
-		} else {
+		if c.state != StateWaitingScores {
+			// Have not sent score to game; request board from player.
 			c.sendSocketMsg(msg.SendBoard, nil)
 		}
 		c.state = StateOver
