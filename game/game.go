@@ -16,6 +16,7 @@ type Game struct {
 	ToGameChan     chan MsgFromClient
 	ToAssignerChan chan *Game
 	AddPlayerChan  chan *Client
+	quit           chan struct{}
 }
 
 func StartNewGame(toAssignerChan chan *Game, name string) *Game {
@@ -27,16 +28,22 @@ func StartNewGame(toAssignerChan chan *Game, name string) *Game {
 		AddPlayerChan:   make(chan *Client),
 		ToAssignerChan:  toAssignerChan,
 		startingTileCnt: 12,
+		quit:            make(chan struct{}),
 	}
 	go game.Run()
 	return game
 }
 
-func (g *Game) Cleanup() {
+// Close game: notify GameAssigner and any clients; close any active channels or go routines.
+func (g *Game) Close() {
 	g.state = StateOver
 	g.ToAssignerChan <- g
+	for c := range g.clients {
+		c.ToClientChan <- MsgFromGame{msg.Exit, g, nil}
+	}
 	close(g.ToGameChan)
 	close(g.AddPlayerChan)
+	close(g.quit)
 }
 
 func (g *Game) newTiles() {
@@ -90,7 +97,6 @@ func (g *Game) resetClientReply() {
 }
 
 func (g *Game) Run() {
-	defer g.Cleanup()
 	for {
 		select {
 		case c := <-g.AddPlayerChan:
@@ -140,9 +146,11 @@ func (g *Game) Run() {
 				delete(g.clients, cm.C)
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {
-					return
+					g.Close()
 				}
 			}
+		case <-g.quit:
+			return
 		}
 	}
 }

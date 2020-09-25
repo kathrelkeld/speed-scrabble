@@ -18,26 +18,28 @@ const (
 	StateOver
 )
 
+// A GameAssigner manages game assignments.
+// TODO make game assigner keep track of active clients too.
 type GameAssigner struct {
 	NewGameChan  chan MsgGameRequest
 	GameExitChan chan *Game
 	games        map[string]*Game
-	exitChan     chan struct{}
+	quit         chan struct{}
 }
 
+// StartGameAssigner starts and returns a new GameAssigner.
 func StartGameAssigner() *GameAssigner {
 	ga := GameAssigner{
 		NewGameChan:  make(chan MsgGameRequest),
 		GameExitChan: make(chan *Game),
 		games:        make(map[string]*Game),
-		exitChan:     make(chan struct{}),
+		quit:         make(chan struct{}),
 	}
 	go ga.Run()
 	return &ga
 }
 
-// Run is the main function of this package, to be called by the server.
-// Accept game requests from clients, and create/destroy games.
+// Run accepts game requests from clients, and creates/destroys games.
 func (ga *GameAssigner) Run() {
 	for {
 		select {
@@ -49,17 +51,18 @@ func (ga *GameAssigner) Run() {
 			req.C.AssignGameChan <- ga.games["global"]
 		case game := <-ga.GameExitChan:
 			delete(ga.games, game.name)
-		case <-ga.exitChan:
+		case <-ga.quit:
 			return
 		}
 	}
 }
 
+// Close gracefully shuts down an active GameAssigner.
+// TODO: close any active games or clients
 func (ga *GameAssigner) Close() {
-	ga.exitChan <- struct{}{}
+	close(ga.quit)
 	close(ga.NewGameChan)
 	close(ga.GameExitChan)
-	close(ga.exitChan)
 }
 
 // A MsgGameRequest is sent from a Client to ask to create or join a new Game.

@@ -200,6 +200,10 @@ func (c *Client) handleFromGameMsg(m *MsgFromGame) int {
 	case msg.Score:
 		// Game sending scores to client.
 		c.sendSocketMsg(msg.Score, m.Data)
+	case msg.Exit:
+		// Game is no more.
+		c.game = nil
+		c.state = StateInit
 	}
 	return 0
 }
