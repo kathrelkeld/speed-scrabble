@@ -136,8 +136,20 @@ const (
 	ZoneMoving            // actively moving
 )
 
+// pickUp removes the tile from its current grid, if any.
+func (t *Tile) pickUp() {
+	switch t.Zone {
+	case ZoneTray:
+		mgr.tray.Set(t.Idx, nil)
+	case ZoneBoard:
+		mgr.board.Set(t.Idx, nil)
+	}
+	t.Zone = ZoneNone
+}
+
 // addToBoard puts the tile onto the board at the given indices.
 func (t *Tile) addToBoard(idx Vec) {
+	t.pickUp()
 	if prev := mgr.board.Get(idx); prev != nil {
 		prev.sendToTray()
 	}
@@ -149,6 +161,7 @@ func (t *Tile) addToBoard(idx Vec) {
 
 // addToTray puts the tile onto the tray at the given indices.
 func (t *Tile) addToTray(idx Vec) {
+	t.pickUp()
 	mgr.tray.Set(idx, t)
 	t.Zone = ZoneTray
 	t.Idx = idx
@@ -161,6 +174,7 @@ func (t *Tile) addToTray(idx Vec) {
 
 // sendToTray puts the tile onto the tray at the first available location.
 func (t *Tile) sendToTray() {
+	t.pickUp()
 	traySize := mgr.tray.IdxSize()
 	for j := 0; j < traySize.Y; j++ {
 		for i := 0; i < traySize.X; i++ {
@@ -277,6 +291,7 @@ func listenerKeyDown() js.Func {
 
 // clickOnTile is called when the player clicks on a tile.
 func clickOnTile(t *Tile, l Vec) {
+	t.pickUp()
 	if mgr.movingTile != nil {
 		mgr.movingTile.sendToTray()
 	}
@@ -296,7 +311,7 @@ func clickOnTile(t *Tile, l Vec) {
 	draw()
 }
 
-// moveTile is called when the player moves a tile.
+// moveTile is called when the player moves a tile with the mouse.
 func moveTile(l Vec) {
 	if mgr.movingTile == nil {
 		fmt.Println("error - move tile called without a moving tile")
