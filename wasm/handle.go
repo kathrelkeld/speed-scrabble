@@ -78,13 +78,13 @@ func (g *Grid) canvasStart(idx Vec) Vec {
 
 // GameManager contains the local game state for the currently running game.
 type GameManager struct {
-	board      *Grid
-	tray       *Grid
-	tiles      []*Tile // All given tiles, regardless of their location.
-	tileSize   Vec     // The canvas size of a single tile.
-	movingTile *Tile   // Currently moving tile (or nil if none).
-	highlight  *Vec    // Current board highlight index (or nil if none).
-	wordDir    Vec     // Auto-advance direction (i.e. left or down).
+	board     *Grid
+	tray      *Grid
+	tiles     []*Tile // All given tiles, regardless of their location.
+	tileSize  Vec     // The canvas size of a single tile.
+	move      *Move   // Current move action.
+	highlight *Vec    // Current board highlight index (or nil if none).
+	wordDir   Vec     // Auto-advance direction (i.e. left or down).
 }
 
 // resetGameManager resets the global variable mgr with a new state for a new game.
@@ -105,6 +105,7 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 			Grid: newInnerGrid(traySize),
 			Loc:  trayStart,
 		},
+		move:     &Move{},
 		tileSize: tileSize,
 		wordDir:  Vec{1, 0},
 	}
@@ -162,6 +163,9 @@ func (t *Tile) addToBoard(idx Vec) {
 // addToTray puts the tile onto the tray at the given indices.
 func (t *Tile) addToTray(idx Vec) {
 	t.pickUp()
+	if mgr.tray.Get(idx) != nil {
+		t.sendToTray()
+	}
 	mgr.tray.Set(idx, t)
 	t.Zone = ZoneTray
 	t.Idx = idx
@@ -220,16 +224,47 @@ func onTile(l Vec) *Tile {
 	return nil
 }
 
+type Move struct {
+	active     bool
+	onTile     bool
+	tile       *Tile
+	startZone  int // Where the tile was before it moved.
+	startIdx   Vec // Coordinates of the tile before it moved.
+	startClick Vec // Where on the canvas was clicked to start the move.
+	hasMoved   bool
+}
+
+type Highlight struct {
+	active bool
+	idx    Vec // Coordinates on the board where the highlight starts.
+	dir    Vec // Direction to advance when typing.
+}
+
 // initializeListners sets the global listener variables for input.
 func initializeListeners() {
 	listenerMouseUp = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if !mgr.move.active {
+			fmt.Println("saw a mouseUp with no active move recorded!")
+			return nil
+		}
 		event := args[0]
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
-		releaseTile(Vec{x, y})
+		l := Vec{x, y}
+		if mgr.move.onTile {
+			releaseTile(l)
+		}
+		releaseUpdateHighlight(l)
+		mgr.move = &Move{}
+		canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
+		canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
 		return nil
 	})
 	listenerMouseMove = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if !mgr.move.active {
+			fmt.Println("saw a mouseMove with no active move recorded!")
+			return nil
+		}
 		event := args[0]
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
@@ -243,13 +278,18 @@ func listenerMouseDown() js.Func {
 		event := args[0]
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
-		// TODO do stuff here
 		l := Vec{x, y}
+		mgr.move = &Move{
+			active:     true,
+			startClick: l,
+		}
+		canvas.Call("addEventListener", "mousemove", listenerMouseMove)
+		canvas.Call("addEventListener", "mouseup", listenerMouseUp)
+
 		if t := onTile(l); t != nil {
 			clickOnTile(t, l)
-		} else if mgr.board.InCanvas(l) {
-			highlightCanvas(l)
 		}
+
 		return nil
 	})
 }
@@ -291,69 +331,67 @@ func listenerKeyDown() js.Func {
 
 // clickOnTile is called when the player clicks on a tile at the given canvas location.
 func clickOnTile(t *Tile, l Vec) {
-	if t.Zone == ZoneBoard {
-		highlightCoords(t.Idx)
-	}
-	if mgr.movingTile != nil {
-		mgr.movingTile.sendToTray()
-	}
 	t.pickUp()
-	mgr.movingTile = t
+	mgr.move.onTile = true
+	mgr.move.tile = t
+	mgr.move.startZone = t.Zone
+	mgr.move.startIdx = t.Idx
 	t.Zone = ZoneMoving
 	t.MoveOffset = Sub(l, t.Loc)
 
-	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
-	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
-
-	markAllTilesValid()
 	draw()
 }
 
 // moveTile is called when the player moves a tile with the mouse.
 func moveTile(l Vec) {
-	if mgr.movingTile == nil {
-		fmt.Println("error - move tile called without a moving tile")
-		return
+	mgr.move.hasMoved = true
+	if mgr.move.onTile {
+		t := mgr.move.tile
+		t.Loc = Vec{l.X - t.MoveOffset.X, l.Y - t.MoveOffset.Y}
+		draw()
 	}
-	t := mgr.movingTile
-	t.Loc = Vec{l.X - t.MoveOffset.X, l.Y - t.MoveOffset.Y}
-	draw()
 }
 
 // releaseTile is called when the player releases a tile.
 func releaseTile(l Vec) {
-	if mgr.movingTile == nil {
-		fmt.Println("error - release tile called without a moving tile")
-		return
-	}
-	t := mgr.movingTile
-	mgr.movingTile = nil
+	t := mgr.move.tile
 
-	if mgr.board.InCanvas(l) {
+	switch {
+	case mgr.board.InCanvas(l):
 		// Release tile onto board.
 		coords := mgr.board.coords(l)
 		t.addToBoard(coords)
 		if mgr.highlight == nil {
 			highlightCoords(coords)
 		}
-	} else if mgr.tray.InCanvas(l) {
+	case mgr.tray.InCanvas(l):
 		// Release tile onto tray.
 		coords := mgr.tray.coords(l)
-		if mgr.board.Get(t.Idx) != nil {
-			t.sendToTray()
-		} else {
-			t.addToTray(coords)
-		}
-	} else {
-		// Return tile to tray.
+		t.addToTray(coords)
+	default:
 		t.sendToTray()
 	}
 
-	canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
-	canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
-
 	markAllTilesValid()
+	draw()
+}
 
+// releaseUpdateHighlight is called when the player releases a click/drag.
+func releaseUpdateHighlight(l Vec) {
+	switch {
+	case mgr.board.InCanvas(l):
+		coords := mgr.board.coords(l)
+		if mgr.move.startClick == l && !mgr.move.hasMoved {
+			if mgr.highlight != nil && *mgr.highlight == coords {
+				// click was on highlight, so toggle instead.
+				toggleWordDir()
+			} else {
+				highlightCoords(coords)
+			}
+		}
+	default:
+		unhighlight()
+	}
 	draw()
 }
 
@@ -402,6 +440,7 @@ func backspaceHighlight() {
 // HighlightCoords highlights the square at location l, which is definitely on the board.
 func highlightCoords(l Vec) {
 	mgr.highlight = &l
+	mgr.wordDir = Vec{1, 0}
 	draw()
 }
 
@@ -424,6 +463,8 @@ func sendAllTilesToTray() js.Func {
 				t.sendToTray()
 			}
 		}
+		unhighlight()
+		markAllTilesValid()
 		draw()
 		return nil
 	})

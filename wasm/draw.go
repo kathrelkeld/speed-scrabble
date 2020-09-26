@@ -109,8 +109,8 @@ func draw() {
 	drawTiles()
 
 	drawHighlight()
-	if mgr.movingTile != nil {
+	if mgr.move.active && mgr.move.onTile {
 		// Moving tiles should be on top.
-		drawTile(mgr.movingTile)
+		drawTile(mgr.move.tile)
 	}
 }
