@@ -15,7 +15,7 @@ func newButton(name, id string, onclick js.Func) js.Value {
 func setUpPage() {
 	initializeListeners()
 	body := js.Global().Get("document").Get("body")
-	js.Global().Get("document").Call("addEventListener", "keypress", listenerKeyDown())
+	js.Global().Get("document").Call("addEventListener", "keydown", listenerKeyDown())
 
 	// Add game buttons
 	body.Call("appendChild", newButton("Reset Tiles", "reset", sendAllTilesToTray()))

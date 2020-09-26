@@ -30,3 +30,7 @@ func sMult(a, b sizeV) sizeV {
 func cAdd(a, b canvasLoc) canvasLoc {
 	return canvasLoc{a.X + b.X, a.Y + b.Y}
 }
+
+func gAdd(a, b gridLoc) gridLoc {
+	return gridLoc{a.X + b.X, a.Y + b.Y}
+}

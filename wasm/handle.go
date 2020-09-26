@@ -58,6 +58,10 @@ func (g *Grid) inBounds(l canvasLoc) bool {
 	return inTarget(l, g.loc, g.end)
 }
 
+func (g *Grid) onGrid(l gridLoc) bool {
+	return l.X >= 0 && l.X < g.size.X && l.Y >= 0 && l.Y < g.size.Y
+}
+
 func (g *Grid) coords(l canvasLoc) gridLoc {
 	return gridLoc{
 		(l.X - g.loc.X) / mgr.tileSize.X,
@@ -234,16 +238,32 @@ func listenerKeyDown() js.Func {
 			return nil
 		}
 		event := args[0]
-		keyVal := event.Get("key").String()
-		fmt.Println(keyVal)
-		if len(keyVal) != 1 {
-			return nil
+		k := event.Get("key").String()
+		fmt.Println("key", k)
+		switch k {
+		case "ArrowUp":
+			moveHighlight(gridLoc{0, -1})
+		case "ArrowDown":
+			moveHighlight(gridLoc{0, 1})
+		case "ArrowLeft":
+			moveHighlight(gridLoc{-1, 0})
+		case "ArrowRight":
+			moveHighlight(gridLoc{1, 0})
+		case " ":
+			// TODO: toggle direction on space key
+		case "Shift":
+			// TODO: toggle direction on shift key
+		case "Enter":
+		case "Backspace":
+			// TODO: delete tile
+		case "Delete":
+			// TODO: delete tile
+		default:
+			if len(k) == 1 && unicode.IsLetter(rune(k[0])) {
+				findForHighlight(string(unicode.ToUpper(rune(k[0]))))
+			}
 		}
-		keyR := rune(keyVal[0])
-		if unicode.IsLetter(keyR) {
-			findForHighlight(string(unicode.ToUpper(keyR)))
-		}
-		// TODO: toggle direction on shift key
+		event.Call("preventDefault")
 		return nil
 	})
 }
@@ -320,6 +340,16 @@ func releaseTile(l canvasLoc) {
 	draw()
 }
 
+// moveHighlight moves the highlight in the given direction.
+// There is definitely a highlight before this gets called.
+func moveHighlight(d gridLoc) {
+	newSpace := gAdd(*mgr.highlight, d)
+	if mgr.board.onGrid(newSpace) {
+		mgr.highlight = &newSpace
+	}
+	draw()
+}
+
 // findForHighlight finds a tile of value v in the tray and moves it to the highlight.
 // There is definitely a highlight before this gets called.
 func findForHighlight(v string) {
@@ -327,8 +357,7 @@ func findForHighlight(v string) {
 		if t.region == OnTray && t.Value == v {
 			t.addToBoard(*mgr.highlight)
 
-			// TODO: advance the highlight to another empty square instead.
-			unhighlight()
+			// TODO: advance the highlight to another empty square.
 			draw()
 			return
 		}
