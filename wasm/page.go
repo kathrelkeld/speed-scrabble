@@ -30,7 +30,7 @@ func setUpPage() {
 	// TODO tie canvas size to default game size
 	canvas.Set("id", "canvas")
 	canvas.Set("width", 1000)
-	canvas.Set("height", 500)
+	canvas.Set("height", 1000)
 	canvas.Call("addEventListener", "mousedown", listenerMouseDown)
 	body.Call("appendChild", canvas)
 	ctx = canvas.Call("getContext", "2d")

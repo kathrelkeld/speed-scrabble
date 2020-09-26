@@ -12,9 +12,16 @@ func drawTile(t *TileLoc) {
 	size := manager.tileSize
 	ctx.Set("fillStyle", "black")
 	ctx.Call("fillRect", t.canvasLoc.X, t.canvasLoc.Y, size.X, size.Y)
-	ctx.Set("fillStyle", "red")
+	if t.invalid {
+		ctx.Set("fillStyle", "red")
+	} else {
+		ctx.Set("fillStyle", "white")
+	}
+	ctx.Set("textAlign", "center")
+	ctx.Set("textBaseline", "middle")
 	ctx.Set("font", fmt.Sprintf("%v", size.X)+"px Arial")
-	ctx.Call("fillText", t.Value, t.canvasLoc.X, t.canvasLoc.Y+manager.tileSize.Y)
+	ctx.Call("fillText", t.Value, t.canvasLoc.X+size.X/2,
+		t.canvasLoc.Y+size.Y/2)
 }
 
 func drawTiles() {
@@ -57,4 +64,8 @@ func draw() {
 	drawBoard()
 	drawTray()
 	drawTiles()
+	if manager.movingTile != nil {
+		// Moving tiles should be on top.
+		drawTile(manager.movingTile)
+	}
 }

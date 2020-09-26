@@ -62,14 +62,14 @@ type GameManager struct {
 
 func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 	traySize := sizeV{tileCnt, 1}
-	tileSize := sizeV{25, 25}
+	tileSize := sizeV{35, 35}
 	return &GameManager{
 		board:    newBoard(boardSize),
 		boardLoc: canvasLoc{10, 10},
 		boardEnd: canvasLoc{10 + tileSize.X*boardSize.X, 10 + tileSize.Y*boardSize.Y},
 		tray:     newBoard(traySize),
 		// TODO calculate where this needs to be based on size of board
-		trayLoc:   canvasLoc{10, 450},
+		trayLoc:   canvasLoc{10, 600},
 		trayEnd:   canvasLoc{10 + tileSize.X*tileCnt, 10 + tileSize.Y},
 		boardSize: boardSize,
 		tileCnt:   tileCnt,
@@ -208,6 +208,9 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 
 	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
 	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
+
+	markAllTilesValid()
+	draw()
 }
 
 func moveTile(l canvasLoc) {
@@ -349,6 +352,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			return 1
 		}
 		markInvalidTiles(invalid)
+		draw()
 	case msg.GameInfo:
 		var s msg.GameInfoData
 		err := json.Unmarshal(data, &s)
