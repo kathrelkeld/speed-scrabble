@@ -26,7 +26,8 @@ type Grid struct {
 	Loc Vec
 }
 
-func newGridInner(size Vec) [][]*Tile {
+// newInnerGrid creates a slice of slices needed for a Grid struct of the given size.
+func newInnerGrid(size Vec) [][]*Tile {
 	var b [][]*Tile
 	for i := 0; i < size.Y; i++ {
 		b = append(b, []*Tile{})
@@ -46,20 +47,20 @@ func (g *Grid) CanvasEnd() Vec {
 	return Add(g.Loc, Mult(mgr.tileSize, size))
 }
 
-func (g *Grid) get(idx Vec) *Tile {
+func (g *Grid) Get(idx Vec) *Tile {
 	return g.Grid[idx.Y][idx.X]
 }
 
-func (g *Grid) set(idx Vec, tile *Tile) {
+func (g *Grid) Set(idx Vec, tile *Tile) {
 	g.Grid[idx.Y][idx.X] = tile
 }
 
-func (g *Grid) inBounds(l Vec) bool {
+func (g *Grid) InCanvas(l Vec) bool {
 	end := g.CanvasEnd()
 	return inTarget(l, g.Loc, end)
 }
 
-func (g *Grid) onGrid(idx Vec) bool {
+func (g *Grid) InCoords(idx Vec) bool {
 	size := g.IdxSize()
 	return idx.X >= 0 && idx.X < size.X && idx.Y >= 0 && idx.Y < size.Y
 }
@@ -75,33 +76,35 @@ func (g *Grid) canvasStart(idx Vec) Vec {
 	return Add(g.Loc, Mult(idx, mgr.tileSize))
 }
 
+// GameManager contains the local game state for the currently running game.
 type GameManager struct {
 	board      *Grid
 	tray       *Grid
-	tiles      []*Tile
-	tileCnt    int
-	tileSize   Vec
-	movingTile *Tile
-	highlight  *Vec
-	wordDir    Vec
+	tiles      []*Tile // All given tiles, regardless of their location.
+	tileSize   Vec     // The canvas size of a single tile.
+	movingTile *Tile   // Currently moving tile (or nil if none).
+	highlight  *Vec    // Current board highlight index (or nil if none).
+	wordDir    Vec     // Auto-advance direction (i.e. left or down).
 }
 
-func newGameManager(boardSize Vec, tileCnt int) *GameManager {
-	traySize := Vec{tileCnt, 1}
+// resetGameManager resets the global variable mgr with a new state for a new game.
+func resetGameManager(boardSize Vec, tileCnt int) {
+	traySize := Vec{tileCnt, 1} // Initial tray is one row.
+
+	// TODO calculate where these need to be based on size of board
 	tileSize := Vec{35, 35}
 	boardStart := Vec{10, 10}
-	// TODO calculate where this needs to be based on size of board
 	trayStart := Vec{10, 600}
-	return &GameManager{
+
+	mgr = &GameManager{
 		board: &Grid{
-			Grid: newGridInner(boardSize),
+			Grid: newInnerGrid(boardSize),
 			Loc:  boardStart,
 		},
 		tray: &Grid{
-			Grid: newGridInner(traySize),
+			Grid: newInnerGrid(traySize),
 			Loc:  trayStart,
 		},
-		tileCnt:  tileCnt,
 		tileSize: tileSize,
 		wordDir:  Vec{1, 0},
 	}
@@ -135,10 +138,10 @@ const (
 
 // addToBoard puts the tile onto the board at the given indices.
 func (t *Tile) addToBoard(idx Vec) {
-	if prev := mgr.board.get(idx); prev != nil {
+	if prev := mgr.board.Get(idx); prev != nil {
 		prev.sendToTray()
 	}
-	mgr.board.set(idx, t)
+	mgr.board.Set(idx, t)
 	t.Zone = ZoneBoard
 	t.Idx = idx
 	t.Loc = Add(mgr.board.Loc, Mult(mgr.tileSize, idx))
@@ -146,7 +149,7 @@ func (t *Tile) addToBoard(idx Vec) {
 
 // addToTray puts the tile onto the tray at the given indices.
 func (t *Tile) addToTray(idx Vec) {
-	mgr.tray.set(idx, t)
+	mgr.tray.Set(idx, t)
 	t.Zone = ZoneTray
 	t.Idx = idx
 	t.Loc = Add(mgr.tray.Loc, Mult(mgr.tileSize, idx))
@@ -162,7 +165,7 @@ func (t *Tile) sendToTray() {
 	for j := 0; j < traySize.Y; j++ {
 		for i := 0; i < traySize.X; i++ {
 			idx := Vec{i, j}
-			if mgr.tray.get(idx) == nil {
+			if mgr.tray.Get(idx) == nil {
 				t.addToTray(idx)
 				return
 			}
@@ -176,7 +179,7 @@ func (t *Tile) sendToTray() {
 // markInvalidTiles marks the given locations on the board as invalid.
 func markInvalidTiles(coords []Vec) {
 	for _, c := range coords {
-		t := mgr.board.get(c)
+		t := mgr.board.Get(c)
 		if t == nil {
 			fmt.Println("Verify marked a non-tile as invalid?")
 			return
@@ -230,7 +233,7 @@ func listenerMouseDown() js.Func {
 		l := Vec{x, y}
 		if t := onTile(l); t != nil {
 			clickOnTile(t, l)
-		} else if mgr.board.inBounds(l) {
+		} else if mgr.board.InCanvas(l) {
 			highlightCanvas(l)
 		}
 		return nil
@@ -279,9 +282,9 @@ func clickOnTile(t *Tile, l Vec) {
 	}
 	mgr.movingTile = t
 	if t.Zone == ZoneBoard {
-		mgr.board.set(t.Idx, nil)
+		mgr.board.Set(t.Idx, nil)
 	} else if t.Zone == ZoneTray {
-		mgr.tray.set(t.Idx, nil)
+		mgr.tray.Set(t.Idx, nil)
 	}
 	t.Zone = ZoneMoving
 	t.MoveOffset = Vec{l.X - t.Loc.X, l.Y - t.Loc.Y}
@@ -314,15 +317,15 @@ func releaseTile(l Vec) {
 	t := mgr.movingTile
 	mgr.movingTile = nil
 
-	if mgr.board.inBounds(l) {
+	if mgr.board.InCanvas(l) {
 		// Release tile onto board.
 		coords := mgr.board.coords(l)
 		t.addToBoard(coords)
 		highlightCoords(coords)
-	} else if mgr.tray.inBounds(l) {
+	} else if mgr.tray.InCanvas(l) {
 		// Release tile onto tray.
 		coords := mgr.tray.coords(l)
-		if mgr.board.get(t.Idx) != nil {
+		if mgr.board.Get(t.Idx) != nil {
 			t.sendToTray()
 		} else {
 			t.addToTray(coords)
@@ -345,7 +348,7 @@ func releaseTile(l Vec) {
 func moveHighlight(d Vec) {
 	// TODO: figure out whether to skip occupied squares
 	newSpace := Add(*mgr.highlight, d)
-	if mgr.board.onGrid(newSpace) {
+	if mgr.board.InCoords(newSpace) {
 		mgr.highlight = &newSpace
 	}
 	draw()
@@ -355,7 +358,7 @@ func moveHighlight(d Vec) {
 // There is definitely a highlight before this gets called.
 // Does nothing if there is already a matching tile present.
 func findForHighlight(v string) {
-	if prev := mgr.board.get(*mgr.highlight); prev != nil && prev.Value == v {
+	if prev := mgr.board.Get(*mgr.highlight); prev != nil && prev.Value == v {
 		return
 	}
 	for _, t := range mgr.tiles {
@@ -374,7 +377,7 @@ func toggleWordDir() {
 }
 
 func backspaceHighlight() {
-	t := mgr.board.get(*mgr.highlight)
+	t := mgr.board.Get(*mgr.highlight)
 	t.sendToTray()
 	draw()
 }
@@ -447,7 +450,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			// TODO delete old manager
 		}
 		// TODO tie to actual game size
-		mgr = newGameManager(Vec{16, 16}, 16)
+		resetGameManager(Vec{16, 16}, 16)
 		var tiles []*Tile
 		err := json.Unmarshal(data, &tiles)
 		if err != nil {
