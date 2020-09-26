@@ -251,9 +251,9 @@ func listenerKeyDown() js.Func {
 		case "ArrowRight":
 			moveHighlight(gridLoc{1, 0})
 		case " ":
-			// TODO: toggle direction on space key
+			toggleWordDir()
 		case "Shift":
-			// TODO: toggle direction on shift key
+			toggleWordDir()
 		case "Enter":
 		case "Backspace":
 			// TODO: delete tile
@@ -363,6 +363,11 @@ func findForHighlight(v string) {
 			return
 		}
 	}
+}
+
+func toggleWordDir() {
+	mgr.wordDir = gridLoc{mgr.wordDir.Y, mgr.wordDir.X}
+	draw()
 }
 
 // HighlightSpace highlights the square at location l, which is definitely on the board.
