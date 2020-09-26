@@ -15,6 +15,7 @@ func newButton(name, id string, onclick js.Func) js.Value {
 func setUpPage() {
 	initializeListeners()
 	body := js.Global().Get("document").Get("body")
+	js.Global().Get("document").Call("addEventListener", "keypress", listenerKeyDown())
 
 	// Add game buttons
 	body.Call("appendChild", newButton("Reset Tiles", "reset", sendAllTilesToTray()))
@@ -31,7 +32,7 @@ func setUpPage() {
 	canvas.Set("id", "canvas")
 	canvas.Set("width", 1000)
 	canvas.Set("height", 1000)
-	canvas.Call("addEventListener", "mousedown", listenerMouseDown)
+	canvas.Call("addEventListener", "mousedown", listenerMouseDown())
 	body.Call("appendChild", canvas)
 	ctx = Context(canvas.Call("getContext", "2d"))
 

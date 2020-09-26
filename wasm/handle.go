@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"syscall/js"
+	"unicode"
 
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
 var mgr *GameManager // initiated in page setup.
 
-var listenerMouseDown js.Func
+// These listeners will be added/removed as needed.
 var listenerMouseUp js.Func
 var listenerMouseMove js.Func
 
@@ -209,7 +210,10 @@ func initializeListeners() {
 		moveTile(canvasLoc{x, y})
 		return nil
 	})
-	listenerMouseDown = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+}
+
+func listenerMouseDown() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
@@ -220,6 +224,26 @@ func initializeListeners() {
 		} else if mgr.board.inBounds(l) {
 			highlightSpace(l)
 		}
+		return nil
+	})
+}
+
+func listenerKeyDown() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if mgr.highlight == nil {
+			return nil
+		}
+		event := args[0]
+		keyVal := event.Get("key").String()
+		fmt.Println(keyVal)
+		if len(keyVal) != 1 {
+			return nil
+		}
+		keyR := rune(keyVal[0])
+		if unicode.IsLetter(keyR) {
+			findForHighlight(string(unicode.ToUpper(keyR)))
+		}
+		// TODO: toggle direction on shift key
 		return nil
 	})
 }
@@ -294,6 +318,21 @@ func releaseTile(l canvasLoc) {
 	markAllTilesValid()
 
 	draw()
+}
+
+// findForHighlight finds a tile of value v in the tray and moves it to the highlight.
+// There is definitely a highlight before this gets called.
+func findForHighlight(v string) {
+	for _, t := range mgr.tiles {
+		if t.region == OnTray && t.Value == v {
+			t.addToBoard(*mgr.highlight)
+
+			// TODO: advance the highlight to another empty square instead.
+			unhighlight()
+			draw()
+			return
+		}
+	}
 }
 
 // HighlightSpace highlights the square at location l, which is definitely on the board.
