@@ -59,37 +59,25 @@ func drawLineBetween(a, b canvasLoc) {
 	ctx.LineTo(b)
 }
 
-func drawGrid(start canvasLoc, gridSize, tileSize sizeV) {
+func drawGrid(g *Grid, tileSize sizeV) {
 	ctx.BeginPath()
 	//ctx.Set("globalAlpha", 1.0)
 	ctx.Set("lineWidth", 2)
 	ctx.Set("strokeStyle", "black")
-	end := canvasLoc{
-		gridSize.X*tileSize.X + start.X,
-		gridSize.Y*tileSize.Y + start.Y,
+	for i := g.loc.X; i <= g.end.X; i += tileSize.X {
+		drawLineBetween(canvasLoc{i, g.loc.Y}, canvasLoc{i, g.end.Y})
 	}
-	for i := start.X; i <= end.X; i += tileSize.X {
-		drawLineBetween(canvasLoc{i, start.Y}, canvasLoc{i, end.Y})
-	}
-	for j := start.Y; j <= end.Y; j += tileSize.Y {
-		drawLineBetween(canvasLoc{start.X, j}, canvasLoc{end.X, j})
+	for j := g.loc.Y; j <= g.end.Y; j += tileSize.Y {
+		drawLineBetween(canvasLoc{g.loc.X, j}, canvasLoc{g.end.X, j})
 	}
 	ctx.ClosePath()
 	ctx.Stroke()
 }
 
-func drawTray() {
-	drawGrid(mgr.tray.loc, mgr.tray.size, mgr.tileSize)
-}
-
-func drawBoard() {
-	drawGrid(mgr.board.loc, mgr.board.size, mgr.tileSize)
-}
-
 func draw() {
 	ctx.Call("clearRect", 0, 0, canvas.Get("width"), canvas.Get("height"))
-	drawBoard()
-	drawTray()
+	drawGrid(mgr.board, mgr.tileSize)
+	drawGrid(mgr.tray, mgr.tileSize)
 	drawTiles()
 	if mgr.movingTile != nil {
 		// Moving tiles should be on top.

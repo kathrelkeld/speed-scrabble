@@ -23,19 +23,15 @@ type sizeV Vec
 type gridLoc Vec
 type canvasLoc Vec
 
+func inTarget(loc, start, end canvasLoc) bool {
+	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
+}
+
 type Grid struct {
 	Grid [][]*TileLoc
 	loc  canvasLoc
 	end  canvasLoc
 	size sizeV
-}
-
-func inTarget(loc, start, end canvasLoc) bool {
-	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
-}
-
-func (g *Grid) inBounds(loc canvasLoc) bool {
-	return inTarget(loc, g.loc, g.end)
 }
 
 func newGridInner(size sizeV) [][]*TileLoc {
@@ -49,9 +45,28 @@ func newGridInner(size sizeV) [][]*TileLoc {
 	return b
 }
 
+func (g *Grid) get(l gridLoc) *TileLoc {
+	return g.Grid[l.Y][l.X]
+}
+
+func (g *Grid) set(l gridLoc, tile *TileLoc) {
+	g.Grid[l.Y][l.X] = tile
+}
+
+func (g *Grid) inBounds(l canvasLoc) bool {
+	return inTarget(l, g.loc, g.end)
+}
+
+func (g *Grid) coords(l canvasLoc) gridLoc {
+	return gridLoc{
+		(l.X - g.loc.X) / mgr.tileSize.X,
+		(l.Y - g.loc.Y) / mgr.tileSize.Y,
+	}
+}
+
 type GameManager struct {
-	board      Grid
-	tray       Grid
+	board      *Grid
+	tray       *Grid
 	tiles      []*TileLoc
 	tileCnt    int
 	tileSize   sizeV
@@ -66,13 +81,13 @@ func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 	// TODO calculate where this needs to be based on size of board
 	trayStart := canvasLoc{10, 600}
 	return &GameManager{
-		board: Grid{
+		board: &Grid{
 			Grid: newGridInner(boardSize),
 			loc:  boardStart,
 			end:  cAdd(boardStart, canvasLoc(sMult(tileSize, boardSize))),
 			size: boardSize,
 		},
-		tray: Grid{
+		tray: &Grid{
 			Grid: newGridInner(traySize),
 			loc:  trayStart,
 			end:  cAdd(trayStart, canvasLoc(sMult(tileSize, traySize))),
@@ -86,7 +101,7 @@ func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 type TileLoc struct {
 	Value      string
 	region     int
-	gridLoc    gridLoc
+	loc        gridLoc
 	canvasLoc  canvasLoc
 	moveOffset canvasLoc
 	invalid    bool
@@ -103,24 +118,24 @@ func newTileLoc(v string) *TileLoc {
 	return &TileLoc{
 		Value:     v,
 		region:    OnNone,
-		gridLoc:   gridLoc{-1, -1},
+		loc:       gridLoc{-1, -1},
 		canvasLoc: canvasLoc{-1, -1},
 	}
 }
 
 // addToBoard puts the tile onto the board at the given location.
 func (t *TileLoc) addToBoard(gl gridLoc) {
-	mgr.board.Grid[gl.Y][gl.X] = t
+	mgr.board.set(gl, t)
 	t.region = OnBoard
-	t.gridLoc = gl
+	t.loc = gl
 	t.canvasLoc = cAdd(mgr.board.loc, canvasLoc(sMult(mgr.tileSize, sizeV(gl))))
 }
 
 // addToTray puts the tile onto the tray at the given location.
 func (t *TileLoc) addToTray(gl gridLoc) {
-	mgr.tray.Grid[gl.Y][gl.X] = t
+	mgr.tray.set(gl, t)
 	t.region = OnTray
-	t.gridLoc = gl
+	t.loc = gl
 	t.canvasLoc = cAdd(mgr.tray.loc, canvasLoc(sMult(mgr.tileSize, sizeV(gl))))
 	t.canvasLoc = canvasLoc{
 		mgr.tray.loc.X + mgr.tileSize.X*gl.X,
@@ -147,7 +162,7 @@ func (t *TileLoc) sendToTray() {
 // markInvalidTiles marks the given locations on the board as invalid.
 func markInvalidTiles(coords []gridLoc) {
 	for _, c := range coords {
-		t := mgr.board.Grid[c.Y][c.X]
+		t := mgr.board.get(c)
 		if t == nil {
 			fmt.Println("Verify marked a non-tile as invalid?")
 			return
@@ -212,9 +227,9 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 	}
 	mgr.movingTile = t
 	if t.region == OnBoard {
-		mgr.board.Grid[t.gridLoc.Y][t.gridLoc.X] = nil
+		mgr.board.set(t.loc, nil)
 	} else if t.region == OnTray {
-		mgr.tray.Grid[t.gridLoc.Y][t.gridLoc.X] = nil
+		mgr.tray.set(t.loc, nil)
 	}
 	t.region = OnMoving
 	t.moveOffset = canvasLoc{l.X - t.canvasLoc.X, l.Y - t.canvasLoc.Y}
@@ -248,11 +263,8 @@ func releaseTile(l canvasLoc) {
 
 	if mgr.board.inBounds(l) {
 		// Release tile onto board.
-		boardCoords := gridLoc{
-			(l.X - mgr.board.loc.X) / mgr.tileSize.X,
-			(l.Y - mgr.board.loc.Y) / mgr.tileSize.Y,
-		}
-		if mgr.board.Grid[t.gridLoc.Y][t.gridLoc.X] != nil {
+		boardCoords := mgr.board.coords(l)
+		if mgr.board.get(t.loc) != nil {
 			// TODO swap the tiles?
 			t.sendToTray()
 		} else {
@@ -260,11 +272,8 @@ func releaseTile(l canvasLoc) {
 		}
 	} else if mgr.tray.inBounds(l) {
 		// Release tile onto tray.
-		trayCoords := gridLoc{
-			(l.X - mgr.tray.loc.X) / mgr.tileSize.X,
-			(l.Y - mgr.tray.loc.Y) / mgr.tileSize.Y,
-		}
-		if mgr.board.Grid[t.gridLoc.Y][t.gridLoc.X] != nil {
+		trayCoords := mgr.tray.coords(l)
+		if mgr.board.get(t.loc) != nil {
 			t.sendToTray()
 		} else {
 			t.addToTray(trayCoords)
