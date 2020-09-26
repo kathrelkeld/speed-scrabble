@@ -136,6 +136,9 @@ func newTileLoc(v string) *TileLoc {
 
 // addToBoard puts the tile onto the board at the given location.
 func (t *TileLoc) addToBoard(gl gridLoc) {
+	if prev := mgr.board.get(gl); prev != nil {
+		prev.sendToTray()
+	}
 	mgr.board.set(gl, t)
 	t.region = OnBoard
 	t.loc = gl
@@ -228,7 +231,7 @@ func listenerMouseDown() js.Func {
 		if t := onTile(l); t != nil {
 			clickOnTile(t, l)
 		} else if mgr.board.inBounds(l) {
-			highlightSpace(l)
+			highlightCanvas(l)
 		}
 		return nil
 	})
@@ -287,7 +290,6 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
 
 	markAllTilesValid()
-	unhighlight()
 	draw()
 }
 
@@ -308,18 +310,15 @@ func releaseTile(l canvasLoc) {
 		fmt.Println("error - release tile called without a moving tile")
 		return
 	}
+	unhighlight()
 	t := mgr.movingTile
 	mgr.movingTile = nil
 
 	if mgr.board.inBounds(l) {
 		// Release tile onto board.
 		boardCoords := mgr.board.coords(l)
-		if mgr.board.get(t.loc) != nil {
-			// TODO swap the tiles?
-			t.sendToTray()
-		} else {
-			t.addToBoard(boardCoords)
-		}
+		t.addToBoard(boardCoords)
+		highlightCoords(boardCoords)
 	} else if mgr.tray.inBounds(l) {
 		// Release tile onto tray.
 		trayCoords := mgr.tray.coords(l)
@@ -329,7 +328,7 @@ func releaseTile(l canvasLoc) {
 			t.addToTray(trayCoords)
 		}
 	} else {
-		// Return untracked tile to tray.
+		// Return tile to tray.
 		t.sendToTray()
 	}
 
@@ -354,7 +353,11 @@ func moveHighlight(d gridLoc) {
 
 // findForHighlight finds a tile of value v in the tray and moves it to the highlight.
 // There is definitely a highlight before this gets called.
+// Does nothing if there is already a matching tile present.
 func findForHighlight(v string) {
+	if prev := mgr.board.get(*mgr.highlight); prev != nil && prev.Value == v {
+		return
+	}
 	for _, t := range mgr.tiles {
 		if t.region == OnTray && t.Value == v {
 			t.addToBoard(*mgr.highlight)
@@ -376,11 +379,16 @@ func backspaceHighlight() {
 	draw()
 }
 
-// HighlightSpace highlights the square at location l, which is definitely on the board.
-func highlightSpace(l canvasLoc) {
-	newH := mgr.board.coords(l)
-	mgr.highlight = &newH
+// HighlightCoords highlights the square at location l, which is definitely on the board.
+func highlightCoords(l gridLoc) {
+	mgr.highlight = &l
 	draw()
+}
+
+// HighlightCanvas highlights the square at location l, which is definitely on the board.
+func highlightCanvas(l canvasLoc) {
+	newH := mgr.board.coords(l)
+	highlightCoords(newH)
 }
 
 func unhighlight() {
