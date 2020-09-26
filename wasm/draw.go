@@ -30,13 +30,13 @@ func drawTiles() {
 }
 
 func drawWordDir() {
-	if mgr.highlight == nil {
+	if !mgr.highlight.active {
 		return
 	}
-	start := mgr.board.canvasStart(Add(*mgr.highlight, mgr.wordDir))
+	start := mgr.board.canvasStart(Add(mgr.highlight.idx, mgr.highlight.dir))
 	end := mgr.board.CanvasEnd()
 	size := Vec{}
-	if mgr.wordDir.X == 0 {
+	if mgr.highlight.dir.X == 0 {
 		size = Vec{mgr.tileSize.X, end.Y - start.Y}
 	} else {
 		size = Vec{end.X - start.X, mgr.tileSize.Y}
@@ -50,10 +50,10 @@ func drawWordDir() {
 }
 
 func drawHighlight() {
-	if mgr.highlight == nil {
+	if !mgr.highlight.active {
 		return
 	}
-	l := mgr.board.canvasStart(*mgr.highlight)
+	l := mgr.board.canvasStart(mgr.highlight.idx)
 	ctx.BeginPath()
 	ctx.Set("strokeStyle", "yellow")
 	ctx.Set("lineWidth", 8)

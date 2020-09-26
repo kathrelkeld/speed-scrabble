@@ -80,11 +80,10 @@ func (g *Grid) canvasStart(idx Vec) Vec {
 type GameManager struct {
 	board     *Grid
 	tray      *Grid
-	tiles     []*Tile // All given tiles, regardless of their location.
-	tileSize  Vec     // The canvas size of a single tile.
-	move      *Move   // Current move action.
-	highlight *Vec    // Current board highlight index (or nil if none).
-	wordDir   Vec     // Auto-advance direction (i.e. left or down).
+	tiles     []*Tile    // All given tiles, regardless of their location.
+	tileSize  Vec        // The canvas size of a single tile.
+	move      *Move      // Current move action.
+	highlight *Highlight // Current board highlight.
 }
 
 // resetGameManager resets the global variable mgr with a new state for a new game.
@@ -105,9 +104,11 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 			Grid: newInnerGrid(traySize),
 			Loc:  trayStart,
 		},
-		move:     &Move{},
+		move: &Move{},
+		highlight: &Highlight{
+			dir: Vec{1, 0},
+		},
 		tileSize: tileSize,
-		wordDir:  Vec{1, 0},
 	}
 }
 
@@ -296,7 +297,7 @@ func listenerMouseDown() js.Func {
 
 func listenerKeyDown() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if mgr.highlight == nil {
+		if !mgr.highlight.active {
 			return nil
 		}
 		event := args[0]
@@ -361,7 +362,7 @@ func releaseTile(l Vec) {
 		// Release tile onto board.
 		coords := mgr.board.coords(l)
 		t.addToBoard(coords)
-		if mgr.highlight == nil {
+		if !mgr.highlight.active {
 			highlightCoords(coords)
 		}
 	case mgr.tray.InCanvas(l):
@@ -382,7 +383,7 @@ func releaseUpdateHighlight(l Vec) {
 	case mgr.board.InCanvas(l):
 		coords := mgr.board.coords(l)
 		if mgr.move.startClick == l && !mgr.move.hasMoved {
-			if mgr.highlight != nil && *mgr.highlight == coords {
+			if mgr.highlight.active && mgr.highlight.idx == coords {
 				// click was on highlight, so toggle instead.
 				toggleWordDir()
 			} else {
@@ -399,9 +400,9 @@ func releaseUpdateHighlight(l Vec) {
 // There is definitely a highlight before this gets called.
 func moveHighlight(d Vec) {
 	// TODO: figure out whether to skip occupied squares
-	newSpace := Add(*mgr.highlight, d)
+	newSpace := Add(mgr.highlight.idx, d)
 	if mgr.board.InCoords(newSpace) {
-		mgr.highlight = &newSpace
+		mgr.highlight.idx = newSpace
 	}
 	draw()
 }
@@ -410,14 +411,14 @@ func moveHighlight(d Vec) {
 // There is definitely a highlight before this gets called.
 // Does nothing if there is already a matching tile present.
 func findForHighlight(v string) {
-	if prev := mgr.board.Get(*mgr.highlight); prev != nil && prev.Value == v {
-		moveHighlight(mgr.wordDir)
+	if prev := mgr.board.Get(mgr.highlight.idx); prev != nil && prev.Value == v {
+		moveHighlight(mgr.highlight.dir)
 		return
 	}
 	for _, t := range mgr.tiles {
 		if t.Zone == ZoneTray && t.Value == v {
-			t.addToBoard(*mgr.highlight)
-			moveHighlight(mgr.wordDir)
+			t.addToBoard(mgr.highlight.idx)
+			moveHighlight(mgr.highlight.dir)
 			draw()
 			return
 		}
@@ -425,22 +426,22 @@ func findForHighlight(v string) {
 }
 
 func toggleWordDir() {
-	mgr.wordDir = Vec{mgr.wordDir.Y, mgr.wordDir.X}
+	mgr.highlight.dir = Vec{mgr.highlight.dir.Y, mgr.highlight.dir.X}
 	draw()
 }
 
 func backspaceHighlight() {
-	if t := mgr.board.Get(*mgr.highlight); t != nil {
+	if t := mgr.board.Get(mgr.highlight.idx); t != nil {
 		t.sendToTray()
 	}
-	moveHighlight(ScaleUp(mgr.wordDir, -1))
+	moveHighlight(ScaleUp(mgr.highlight.dir, -1))
 	draw()
 }
 
 // HighlightCoords highlights the square at location l, which is definitely on the board.
 func highlightCoords(l Vec) {
-	mgr.highlight = &l
-	mgr.wordDir = Vec{1, 0}
+	mgr.highlight.active = true
+	mgr.highlight.idx = l
 	draw()
 }
 
@@ -451,7 +452,9 @@ func highlightCanvas(l Vec) {
 }
 
 func unhighlight() {
-	mgr.highlight = nil
+	mgr.highlight.active = false
+	mgr.highlight.idx = Vec{-1, -1}
+	mgr.highlight.dir = Vec{1, 0}
 	draw()
 }
 
