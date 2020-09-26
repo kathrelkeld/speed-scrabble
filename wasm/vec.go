@@ -23,6 +23,10 @@ func (v Vec) ScaleDown(a int) Vec {
 	return Vec{v.X / a, v.Y / a}
 }
 
+func sMult(a, b sizeV) sizeV {
+	return sizeV{a.X * b.X, a.Y * b.Y}
+}
+
 func cAdd(a, b canvasLoc) canvasLoc {
 	return canvasLoc{a.X + b.X, a.Y + b.Y}
 }

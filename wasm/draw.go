@@ -79,11 +79,11 @@ func drawGrid(start canvasLoc, gridSize, tileSize sizeV) {
 }
 
 func drawTray() {
-	drawGrid(manager.trayLoc, manager.traySize, manager.tileSize)
+	drawGrid(manager.tray.loc, manager.tray.size, manager.tileSize)
 }
 
 func drawBoard() {
-	drawGrid(manager.boardLoc, manager.boardSize, manager.tileSize)
+	drawGrid(manager.board.loc, manager.board.size, manager.tileSize)
 }
 
 func draw() {

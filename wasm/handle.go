@@ -23,14 +23,23 @@ type sizeV Vec
 type gridLoc Vec
 type canvasLoc Vec
 
-func isInTarget(loc, start, end canvasLoc) bool {
+type Grid struct {
+	Grid [][]*TileLoc
+	loc  canvasLoc
+	end  canvasLoc
+	size sizeV
+}
+
+func inTarget(loc, start, end canvasLoc) bool {
 	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
 }
 
-type grid [][]*TileLoc
+func (g *Grid) inBounds(loc canvasLoc) bool {
+	return inTarget(loc, g.loc, g.end)
+}
 
-func newGrid(size sizeV) grid {
-	var b grid
+func newGridInner(size sizeV) [][]*TileLoc {
+	var b [][]*TileLoc
 	for i := 0; i < size.Y; i++ {
 		b = append(b, []*TileLoc{})
 		for j := 0; j < size.X; j++ {
@@ -41,35 +50,36 @@ func newGrid(size sizeV) grid {
 }
 
 type GameManager struct {
-	board      grid
-	boardLoc   canvasLoc
-	boardEnd   canvasLoc
-	tray       grid
-	trayLoc    canvasLoc
-	trayEnd    canvasLoc
+	board      Grid
+	tray       Grid
 	tiles      []*TileLoc
-	boardSize  sizeV
-	traySize   sizeV
 	tileCnt    int
 	tileSize   sizeV
 	movingTile *TileLoc
+	highlight  *gridLoc
 }
 
 func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 	traySize := sizeV{tileCnt, 1}
 	tileSize := sizeV{35, 35}
+	boardStart := canvasLoc{10, 10}
+	// TODO calculate where this needs to be based on size of board
+	trayStart := canvasLoc{10, 600}
 	return &GameManager{
-		board:    newGrid(boardSize),
-		boardLoc: canvasLoc{10, 10},
-		boardEnd: canvasLoc{10 + tileSize.X*boardSize.X, 10 + tileSize.Y*boardSize.Y},
-		tray:     newGrid(traySize),
-		// TODO calculate where this needs to be based on size of board
-		trayLoc:   canvasLoc{10, 600},
-		trayEnd:   canvasLoc{10 + tileSize.X*tileCnt, 10 + tileSize.Y},
-		boardSize: boardSize,
-		tileCnt:   tileCnt,
-		traySize:  traySize,
-		tileSize:  tileSize,
+		board: Grid{
+			Grid: newGridInner(boardSize),
+			loc:  boardStart,
+			end:  cAdd(boardStart, canvasLoc(sMult(tileSize, boardSize))),
+			size: boardSize,
+		},
+		tray: Grid{
+			Grid: newGridInner(traySize),
+			loc:  trayStart,
+			end:  cAdd(trayStart, canvasLoc(sMult(tileSize, traySize))),
+			size: traySize,
+		},
+		tileCnt:  tileCnt,
+		tileSize: tileSize,
 	}
 }
 
@@ -100,46 +110,44 @@ func newTileLoc(v string) *TileLoc {
 
 // addToBoard puts the tile onto the board at the given location.
 func (t *TileLoc) addToBoard(gl gridLoc) {
-	manager.board[gl.Y][gl.X] = t
+	manager.board.Grid[gl.Y][gl.X] = t
 	t.region = OnBoard
 	t.gridLoc = gl
-	t.canvasLoc = canvasLoc{
-		manager.boardLoc.X + manager.tileSize.X*gl.X,
-		manager.boardLoc.Y + manager.tileSize.Y*gl.Y,
-	}
+	t.canvasLoc = cAdd(manager.board.loc, canvasLoc(sMult(manager.tileSize, sizeV(gl))))
 }
 
 // addToTray puts the tile onto the tray at the given location.
 func (t *TileLoc) addToTray(gl gridLoc) {
-	manager.tray[gl.Y][gl.X] = t
+	manager.tray.Grid[gl.Y][gl.X] = t
 	t.region = OnTray
 	t.gridLoc = gl
+	t.canvasLoc = cAdd(manager.tray.loc, canvasLoc(sMult(manager.tileSize, sizeV(gl))))
 	t.canvasLoc = canvasLoc{
-		manager.trayLoc.X + manager.tileSize.X*gl.X,
-		manager.trayLoc.Y + manager.tileSize.Y*gl.Y,
+		manager.tray.loc.X + manager.tileSize.X*gl.X,
+		manager.tray.loc.Y + manager.tileSize.Y*gl.Y,
 	}
 }
 
 // sendToTray puts the tile onto the tray at the first available location.
 func (t *TileLoc) sendToTray() {
-	for j := 0; j < len(manager.tray); j++ {
-		for i := 0; i < len(manager.tray[0]); i++ {
-			if manager.tray[j][i] == nil {
+	for j := 0; j < len(manager.tray.Grid); j++ {
+		for i := 0; i < len(manager.tray.Grid[0]); i++ {
+			if manager.tray.Grid[j][i] == nil {
 				t.addToTray(gridLoc{i, j})
 				return
 			}
 		}
 	}
 	// TODO expand downward if needed
-	manager.tray[0] = append(manager.tray[0], t)
-	manager.traySize.X += 1
-	t.addToTray(gridLoc{len(manager.tray[0]) - 1, 0})
+	manager.tray.Grid[0] = append(manager.tray.Grid[0], t)
+	manager.tray.size.X += 1
+	t.addToTray(gridLoc{len(manager.tray.Grid[0]) - 1, 0})
 }
 
 // markInvalidTiles marks the given locations on the board as invalid.
 func markInvalidTiles(coords []gridLoc) {
 	for _, c := range coords {
-		t := manager.board[c.Y][c.X]
+		t := manager.board.Grid[c.Y][c.X]
 		if t == nil {
 			fmt.Println("Verify marked a non-tile as invalid?")
 			return
@@ -190,6 +198,8 @@ func initializeListeners() {
 		l := canvasLoc{x, y}
 		if t := onTile(l); t != nil {
 			clickOnTile(t, l)
+		} else if manager.board.inBounds(l) {
+			highlightSpace(l)
 		}
 		return nil
 	})
@@ -202,9 +212,9 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 	}
 	manager.movingTile = t
 	if t.region == OnBoard {
-		manager.board[t.gridLoc.Y][t.gridLoc.X] = nil
+		manager.board.Grid[t.gridLoc.Y][t.gridLoc.X] = nil
 	} else if t.region == OnTray {
-		manager.tray[t.gridLoc.Y][t.gridLoc.X] = nil
+		manager.tray.Grid[t.gridLoc.Y][t.gridLoc.X] = nil
 	}
 	t.region = OnMoving
 	t.moveOffset = canvasLoc{l.X - t.canvasLoc.X, l.Y - t.canvasLoc.Y}
@@ -236,25 +246,25 @@ func releaseTile(l canvasLoc) {
 	t := manager.movingTile
 	manager.movingTile = nil
 
-	if isInTarget(l, manager.boardLoc, manager.boardEnd) {
+	if manager.board.inBounds(l) {
 		// Release tile onto board.
 		boardCoords := gridLoc{
-			(l.X - manager.boardLoc.X) / manager.tileSize.X,
-			(l.Y - manager.boardLoc.Y) / manager.tileSize.Y,
+			(l.X - manager.board.loc.X) / manager.tileSize.X,
+			(l.Y - manager.board.loc.Y) / manager.tileSize.Y,
 		}
-		if manager.board[t.gridLoc.Y][t.gridLoc.X] != nil {
+		if manager.board.Grid[t.gridLoc.Y][t.gridLoc.X] != nil {
 			// TODO swap the tiles?
 			t.sendToTray()
 		} else {
 			t.addToBoard(boardCoords)
 		}
-	} else if isInTarget(l, manager.trayLoc, manager.trayEnd) {
+	} else if manager.tray.inBounds(l) {
 		// Release tile onto tray.
 		trayCoords := gridLoc{
-			(l.X - manager.trayLoc.X) / manager.tileSize.X,
-			(l.Y - manager.trayLoc.Y) / manager.tileSize.Y,
+			(l.X - manager.tray.loc.X) / manager.tileSize.X,
+			(l.Y - manager.tray.loc.Y) / manager.tileSize.Y,
 		}
-		if manager.board[t.gridLoc.Y][t.gridLoc.X] != nil {
+		if manager.board.Grid[t.gridLoc.Y][t.gridLoc.X] != nil {
 			t.sendToTray()
 		} else {
 			t.addToTray(trayCoords)
@@ -269,6 +279,16 @@ func releaseTile(l canvasLoc) {
 
 	markAllTilesValid()
 
+	draw()
+}
+
+func highlightSpace(l canvasLoc) {
+	//manager.highlight = l
+	draw()
+}
+
+func unhighlight() {
+	manager.highlight = nil
 	draw()
 }
 
@@ -305,7 +325,7 @@ func newGame() js.Func {
 func verify() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		// TODO: add tiles
-		m, _ := msg.NewSocketData(msg.Verify, manager.board)
+		m, _ := msg.NewSocketData(msg.Verify, manager.board.Grid)
 		websocketSend(m)
 		return nil
 	})
