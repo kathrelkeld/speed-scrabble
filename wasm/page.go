@@ -33,6 +33,6 @@ func setUpPage() {
 	canvas.Set("height", 1000)
 	canvas.Call("addEventListener", "mousedown", listenerMouseDown)
 	body.Call("appendChild", canvas)
-	ctx = canvas.Call("getContext", "2d")
+	ctx = Context(canvas.Call("getContext", "2d"))
 
 }

@@ -8,16 +8,11 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-var manager *GameManager
+var manager *GameManager // initiated in page setup.
 
 var listenerMouseDown js.Func
 var listenerMouseUp js.Func
 var listenerMouseMove js.Func
-
-type Vec struct {
-	X int
-	Y int
-}
 
 type Tile struct {
 	Value  string
@@ -32,10 +27,10 @@ func isInTarget(loc, start, end canvasLoc) bool {
 	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
 }
 
-type board [][]*TileLoc
+type grid [][]*TileLoc
 
-func newBoard(size sizeV) board {
-	var b board
+func newGrid(size sizeV) grid {
+	var b grid
 	for i := 0; i < size.Y; i++ {
 		b = append(b, []*TileLoc{})
 		for j := 0; j < size.X; j++ {
@@ -46,10 +41,10 @@ func newBoard(size sizeV) board {
 }
 
 type GameManager struct {
-	board      board
+	board      grid
 	boardLoc   canvasLoc
 	boardEnd   canvasLoc
-	tray       board
+	tray       grid
 	trayLoc    canvasLoc
 	trayEnd    canvasLoc
 	tiles      []*TileLoc
@@ -64,10 +59,10 @@ func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 	traySize := sizeV{tileCnt, 1}
 	tileSize := sizeV{35, 35}
 	return &GameManager{
-		board:    newBoard(boardSize),
+		board:    newGrid(boardSize),
 		boardLoc: canvasLoc{10, 10},
 		boardEnd: canvasLoc{10 + tileSize.X*boardSize.X, 10 + tileSize.Y*boardSize.Y},
-		tray:     newBoard(traySize),
+		tray:     newGrid(traySize),
 		// TODO calculate where this needs to be based on size of board
 		trayLoc:   canvasLoc{10, 600},
 		trayEnd:   canvasLoc{10 + tileSize.X*tileCnt, 10 + tileSize.Y},
@@ -103,17 +98,8 @@ func newTileLoc(v string) *TileLoc {
 	}
 }
 
-func addToTray(t *TileLoc, gl gridLoc) {
-	manager.tray[gl.Y][gl.X] = t
-	t.region = OnTray
-	t.gridLoc = gl
-	t.canvasLoc = canvasLoc{
-		manager.trayLoc.X + manager.tileSize.X*gl.X,
-		manager.trayLoc.Y + manager.tileSize.Y*gl.Y,
-	}
-}
-
-func addToBoard(t *TileLoc, gl gridLoc) {
+// addToBoard puts the tile onto the board at the given location.
+func (t *TileLoc) addToBoard(gl gridLoc) {
 	manager.board[gl.Y][gl.X] = t
 	t.region = OnBoard
 	t.gridLoc = gl
@@ -123,11 +109,23 @@ func addToBoard(t *TileLoc, gl gridLoc) {
 	}
 }
 
-func sendTileToTray(t *TileLoc) {
+// addToTray puts the tile onto the tray at the given location.
+func (t *TileLoc) addToTray(gl gridLoc) {
+	manager.tray[gl.Y][gl.X] = t
+	t.region = OnTray
+	t.gridLoc = gl
+	t.canvasLoc = canvasLoc{
+		manager.trayLoc.X + manager.tileSize.X*gl.X,
+		manager.trayLoc.Y + manager.tileSize.Y*gl.Y,
+	}
+}
+
+// sendToTray puts the tile onto the tray at the first available location.
+func (t *TileLoc) sendToTray() {
 	for j := 0; j < len(manager.tray); j++ {
 		for i := 0; i < len(manager.tray[0]); i++ {
 			if manager.tray[j][i] == nil {
-				addToTray(t, gridLoc{i, j})
+				t.addToTray(gridLoc{i, j})
 				return
 			}
 		}
@@ -135,9 +133,10 @@ func sendTileToTray(t *TileLoc) {
 	// TODO expand downward if needed
 	manager.tray[0] = append(manager.tray[0], t)
 	manager.traySize.X += 1
-	addToTray(t, gridLoc{len(manager.tray[0]) - 1, 0})
+	t.addToTray(gridLoc{len(manager.tray[0]) - 1, 0})
 }
 
+// markInvalidTiles marks the given locations on the board as invalid.
 func markInvalidTiles(coords []gridLoc) {
 	for _, c := range coords {
 		t := manager.board[c.Y][c.X]
@@ -149,12 +148,14 @@ func markInvalidTiles(coords []gridLoc) {
 	}
 }
 
+// markAllTilesValid undoes markInvalidTiles.
 func markAllTilesValid() {
 	for _, t := range manager.tiles {
 		t.invalid = false
 	}
 }
 
+// onTile returns a tile or nil, depending on whether there is a tile at the given location.
 func onTile(l canvasLoc) *TileLoc {
 	for _, t := range manager.tiles {
 		if l.X > t.canvasLoc.X && l.X < t.canvasLoc.X+manager.tileSize.X &&
@@ -165,6 +166,7 @@ func onTile(l canvasLoc) *TileLoc {
 	return nil
 }
 
+// initializeListners sets the global listener variables for input.
 func initializeListeners() {
 	listenerMouseUp = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
@@ -193,9 +195,10 @@ func initializeListeners() {
 	})
 }
 
+// clickOnTile is called when the player clicks on a tile.
 func clickOnTile(t *TileLoc, l canvasLoc) {
 	if manager.movingTile != nil {
-		sendTileToTray(manager.movingTile)
+		manager.movingTile.sendToTray()
 	}
 	manager.movingTile = t
 	if t.region == OnBoard {
@@ -213,6 +216,7 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 	draw()
 }
 
+// moveTile is called when the player moves a tile.
 func moveTile(l canvasLoc) {
 	if manager.movingTile == nil {
 		fmt.Println("error - move tile called without a moving tile")
@@ -223,6 +227,7 @@ func moveTile(l canvasLoc) {
 	draw()
 }
 
+// releaseTile is called when the player releases a tile.
 func releaseTile(l canvasLoc) {
 	if manager.movingTile == nil {
 		fmt.Println("error - release tile called without a moving tile")
@@ -239,9 +244,9 @@ func releaseTile(l canvasLoc) {
 		}
 		if manager.board[t.gridLoc.Y][t.gridLoc.X] != nil {
 			// TODO swap the tiles?
-			sendTileToTray(t)
+			t.sendToTray()
 		} else {
-			addToBoard(t, boardCoords)
+			t.addToBoard(boardCoords)
 		}
 	} else if isInTarget(l, manager.trayLoc, manager.trayEnd) {
 		// Release tile onto tray.
@@ -250,13 +255,13 @@ func releaseTile(l canvasLoc) {
 			(l.Y - manager.trayLoc.Y) / manager.tileSize.Y,
 		}
 		if manager.board[t.gridLoc.Y][t.gridLoc.X] != nil {
-			sendTileToTray(t)
+			t.sendToTray()
 		} else {
-			addToTray(t, trayCoords)
+			t.addToTray(trayCoords)
 		}
 	} else {
 		// Return untracked tile to tray.
-		sendTileToTray(t)
+		t.sendToTray()
 	}
 
 	canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
@@ -267,21 +272,22 @@ func releaseTile(l canvasLoc) {
 	draw()
 }
 
-func joinGame() {
-	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
-	websocketSend(m)
-}
-
+// sendAllTilestoTray sends all tiles from the board into the tray.
 func sendAllTilesToTray() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		for _, t := range manager.tiles {
 			if t.region == OnBoard {
-				sendTileToTray(t)
+				t.sendToTray()
 			}
 		}
 		draw()
 		return nil
 	})
+}
+
+func joinGame() {
+	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
+	websocketSend(m)
 }
 
 func requestNewTile() js.Func {
@@ -328,7 +334,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 		for _, tile := range tiles {
 			loc := newTileLoc(tile.Value)
 			manager.tiles = append(manager.tiles, loc)
-			sendTileToTray(loc)
+			loc.sendToTray()
 		}
 		draw()
 	case msg.AddTile:
@@ -340,7 +346,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 		}
 		loc := newTileLoc(tile.Value)
 		manager.tiles = append(manager.tiles, loc)
-		sendTileToTray(loc)
+		loc.sendToTray()
 		draw()
 	case msg.Score:
 
