@@ -22,6 +22,7 @@ func setUpPage() {
 	body.Call("appendChild", newButton("+1 Tile", "addTile", requestNewTile()))
 	body.Call("appendChild", newButton("NewGame", "newGame", newGame()))
 	body.Call("appendChild", newButton("Verify", "verify", verify()))
+	body.Call("appendChild", newButton("Shuffle Tiles", "shuffle", shuffleTiles()))
 
 	messages := js.Global().Get("document").Call("createElement", "textbox")
 	messages.Set("id", "messages")

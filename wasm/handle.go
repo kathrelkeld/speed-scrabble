@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"syscall/js"
 	"unicode"
 
@@ -467,6 +468,28 @@ func sendAllTilesToTray() js.Func {
 			}
 		}
 		unhighlight()
+		markAllTilesValid()
+		draw()
+		return nil
+	})
+}
+
+// shuffleTiles reorders the tiles in the tray.
+func shuffleTiles() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		var ts []*Tile
+		for _, t := range mgr.tiles {
+			if t.Zone == ZoneTray {
+				t.pickUp()
+				ts = append(ts, t)
+			}
+		}
+		rand.Shuffle(len(ts), func(i, j int) {
+			ts[i], ts[j] = ts[j], ts[i]
+		})
+		for _, t := range ts {
+			t.sendToTray()
+		}
 		markAllTilesValid()
 		draw()
 		return nil
