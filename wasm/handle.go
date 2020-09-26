@@ -20,10 +20,10 @@ func inTarget(loc, start, end Vec) bool {
 }
 
 type Grid struct {
+	// Grid is the slice of slices representation of the entire grid.
 	Grid [][]*Tile
-	loc  Vec
-	end  Vec
-	size Vec
+	// Loc is the canvas coordinates where this grid is drawn.
+	Loc Vec
 }
 
 func newGridInner(size Vec) [][]*Tile {
@@ -37,6 +37,15 @@ func newGridInner(size Vec) [][]*Tile {
 	return b
 }
 
+func (g *Grid) IdxSize() Vec {
+	return Vec{len(g.Grid[0]), len(g.Grid)}
+}
+
+func (g *Grid) CanvasEnd() Vec {
+	size := g.IdxSize()
+	return Add(g.Loc, Mult(mgr.tileSize, size))
+}
+
 func (g *Grid) get(idx Vec) *Tile {
 	return g.Grid[idx.Y][idx.X]
 }
@@ -46,22 +55,24 @@ func (g *Grid) set(idx Vec, tile *Tile) {
 }
 
 func (g *Grid) inBounds(l Vec) bool {
-	return inTarget(l, g.loc, g.end)
+	end := g.CanvasEnd()
+	return inTarget(l, g.Loc, end)
 }
 
 func (g *Grid) onGrid(idx Vec) bool {
-	return idx.X >= 0 && idx.X < g.size.X && idx.Y >= 0 && idx.Y < g.size.Y
+	size := g.IdxSize()
+	return idx.X >= 0 && idx.X < size.X && idx.Y >= 0 && idx.Y < size.Y
 }
 
 func (g *Grid) coords(loc Vec) Vec {
 	return Vec{
-		(loc.X - g.loc.X) / mgr.tileSize.X,
-		(loc.Y - g.loc.Y) / mgr.tileSize.Y,
+		(loc.X - g.Loc.X) / mgr.tileSize.X,
+		(loc.Y - g.Loc.Y) / mgr.tileSize.Y,
 	}
 }
 
 func (g *Grid) canvasStart(idx Vec) Vec {
-	return Add(g.loc, Mult(idx, mgr.tileSize))
+	return Add(g.Loc, Mult(idx, mgr.tileSize))
 }
 
 type GameManager struct {
@@ -84,15 +95,11 @@ func newGameManager(boardSize Vec, tileCnt int) *GameManager {
 	return &GameManager{
 		board: &Grid{
 			Grid: newGridInner(boardSize),
-			loc:  boardStart,
-			end:  Add(boardStart, Mult(tileSize, boardSize)),
-			size: boardSize,
+			Loc:  boardStart,
 		},
 		tray: &Grid{
 			Grid: newGridInner(traySize),
-			loc:  trayStart,
-			end:  Add(trayStart, Mult(tileSize, traySize)),
-			size: traySize,
+			Loc:  trayStart,
 		},
 		tileCnt:  tileCnt,
 		tileSize: tileSize,
@@ -134,7 +141,7 @@ func (t *Tile) addToBoard(idx Vec) {
 	mgr.board.set(idx, t)
 	t.Zone = ZoneBoard
 	t.Idx = idx
-	t.Loc = Add(mgr.board.loc, Mult(mgr.tileSize, idx))
+	t.Loc = Add(mgr.board.Loc, Mult(mgr.tileSize, idx))
 }
 
 // addToTray puts the tile onto the tray at the given indices.
@@ -142,17 +149,18 @@ func (t *Tile) addToTray(idx Vec) {
 	mgr.tray.set(idx, t)
 	t.Zone = ZoneTray
 	t.Idx = idx
-	t.Loc = Add(mgr.tray.loc, Mult(mgr.tileSize, idx))
+	t.Loc = Add(mgr.tray.Loc, Mult(mgr.tileSize, idx))
 	t.Loc = Vec{
-		mgr.tray.loc.X + mgr.tileSize.X*idx.X,
-		mgr.tray.loc.Y + mgr.tileSize.Y*idx.Y,
+		mgr.tray.Loc.X + mgr.tileSize.X*idx.X,
+		mgr.tray.Loc.Y + mgr.tileSize.Y*idx.Y,
 	}
 }
 
 // sendToTray puts the tile onto the tray at the first available location.
 func (t *Tile) sendToTray() {
-	for j := 0; j < len(mgr.tray.Grid); j++ {
-		for i := 0; i < len(mgr.tray.Grid[0]); i++ {
+	traySize := mgr.tray.IdxSize()
+	for j := 0; j < traySize.Y; j++ {
+		for i := 0; i < traySize.X; i++ {
 			idx := Vec{i, j}
 			if mgr.tray.get(idx) == nil {
 				t.addToTray(idx)
@@ -162,7 +170,6 @@ func (t *Tile) sendToTray() {
 	}
 	// TODO expand downward if needed
 	mgr.tray.Grid[0] = append(mgr.tray.Grid[0], t)
-	mgr.tray.size.X += 1
 	t.addToTray(Vec{len(mgr.tray.Grid[0]) - 1, 0})
 }
 

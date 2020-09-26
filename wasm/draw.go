@@ -34,11 +34,12 @@ func drawWordDir() {
 		return
 	}
 	start := mgr.board.canvasStart(Add(*mgr.highlight, mgr.wordDir))
+	end := mgr.board.CanvasEnd()
 	size := Vec{}
 	if mgr.wordDir.X == 0 {
-		size = Vec{mgr.tileSize.X, mgr.board.end.Y - start.Y}
+		size = Vec{mgr.tileSize.X, end.Y - start.Y}
 	} else {
-		size = Vec{mgr.board.end.X - start.X, mgr.tileSize.Y}
+		size = Vec{end.X - start.X, mgr.tileSize.Y}
 	}
 
 	ctx.Set("globalAlpha", 0.4)
@@ -87,11 +88,12 @@ func drawGrid(g *Grid, tileSize Vec) {
 	//ctx.Set("globalAlpha", 1.0)
 	ctx.Set("lineWidth", 2)
 	ctx.Set("strokeStyle", "black")
-	for i := g.loc.X; i <= g.end.X; i += tileSize.X {
-		drawLineBetween(Vec{i, g.loc.Y}, Vec{i, g.end.Y})
+	end := g.CanvasEnd()
+	for i := g.Loc.X; i <= end.X; i += tileSize.X {
+		drawLineBetween(Vec{i, g.Loc.Y}, Vec{i, end.Y})
 	}
-	for j := g.loc.Y; j <= g.end.Y; j += tileSize.Y {
-		drawLineBetween(Vec{g.loc.X, j}, Vec{g.end.X, j})
+	for j := g.Loc.Y; j <= end.Y; j += tileSize.Y {
+		drawLineBetween(Vec{g.Loc.X, j}, Vec{end.X, j})
 	}
 	ctx.ClosePath()
 	ctx.Stroke()
