@@ -8,15 +8,15 @@ import (
 var canvas js.Value // set during page setUp
 var ctx Context     // set during page setUp
 
-func drawTile(t *TileLoc) {
+func drawTile(t *Tile) {
 	ctx.Set("fillStyle", "black")
-	ctx.FillRect(t.canvasLoc, mgr.tileSize)
-	if t.invalid {
+	ctx.FillRect(t.Loc, mgr.tileSize)
+	if t.Invalid {
 		ctx.Set("fillStyle", "red")
 	} else {
 		ctx.Set("fillStyle", "white")
 	}
-	ctx.FillText(t.Value, canvasLoc(Vec(t.canvasLoc).Add(Vec(mgr.tileSize).ScaleDown(2))))
+	ctx.FillText(t.Value, canvasLoc(Vec(t.Loc).Add(Vec(mgr.tileSize).ScaleDown(2))))
 }
 
 func drawTiles() {
