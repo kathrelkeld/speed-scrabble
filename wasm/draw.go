@@ -17,7 +17,6 @@ func drawTile(t *TileLoc) {
 		ctx.Set("fillStyle", "white")
 	}
 	ctx.FillText(t.Value, canvasLoc(Vec(t.canvasLoc).Add(Vec(mgr.tileSize).ScaleDown(2))))
-	drawHighlight(t.canvasLoc)
 }
 
 func drawTiles() {
@@ -30,7 +29,8 @@ func drawTiles() {
 	}
 }
 
-func drawHighlight(l canvasLoc) {
+func drawHighlight() {
+	l := mgr.board.canvasStart(*mgr.highlight)
 	ctx.BeginPath()
 	ctx.Set("strokeStyle", "yellow")
 	ctx.Set("lineWidth", 8)
@@ -79,6 +79,10 @@ func draw() {
 	drawGrid(mgr.board, mgr.tileSize)
 	drawGrid(mgr.tray, mgr.tileSize)
 	drawTiles()
+
+	if mgr.highlight != nil {
+		drawHighlight()
+	}
 	if mgr.movingTile != nil {
 		// Moving tiles should be on top.
 		drawTile(mgr.movingTile)

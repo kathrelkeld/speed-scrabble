@@ -64,6 +64,10 @@ func (g *Grid) coords(l canvasLoc) gridLoc {
 	}
 }
 
+func (g *Grid) canvasStart(l gridLoc) canvasLoc {
+	return cAdd(g.loc, canvasLoc(sMult(sizeV(l), mgr.tileSize)))
+}
+
 type GameManager struct {
 	board      *Grid
 	tray       *Grid
@@ -238,6 +242,7 @@ func clickOnTile(t *TileLoc, l canvasLoc) {
 	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
 
 	markAllTilesValid()
+	unhighlight()
 	draw()
 }
 
@@ -291,8 +296,10 @@ func releaseTile(l canvasLoc) {
 	draw()
 }
 
+// HighlightSpace highlights the square at location l, which is definitely on the board.
 func highlightSpace(l canvasLoc) {
-	//mgr.highlight = l
+	newH := mgr.board.coords(l)
+	mgr.highlight = &newH
 	draw()
 }
 
