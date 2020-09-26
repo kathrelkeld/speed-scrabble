@@ -256,9 +256,9 @@ func listenerKeyDown() js.Func {
 			toggleWordDir()
 		case "Enter":
 		case "Backspace":
-			// TODO: delete tile
+			backspaceHighlight()
 		case "Delete":
-			// TODO: delete tile
+			backspaceHighlight()
 		default:
 			if len(k) == 1 && unicode.IsLetter(rune(k[0])) {
 				findForHighlight(string(unicode.ToUpper(rune(k[0]))))
@@ -344,6 +344,7 @@ func releaseTile(l canvasLoc) {
 // moveHighlight moves the highlight in the given direction.
 // There is definitely a highlight before this gets called.
 func moveHighlight(d gridLoc) {
+	// TODO: figure out whether to skip occupied squares
 	newSpace := gAdd(*mgr.highlight, d)
 	if mgr.board.onGrid(newSpace) {
 		mgr.highlight = &newSpace
@@ -357,8 +358,7 @@ func findForHighlight(v string) {
 	for _, t := range mgr.tiles {
 		if t.region == OnTray && t.Value == v {
 			t.addToBoard(*mgr.highlight)
-
-			// TODO: advance the highlight to another empty square.
+			moveHighlight(mgr.wordDir)
 			draw()
 			return
 		}
@@ -367,6 +367,12 @@ func findForHighlight(v string) {
 
 func toggleWordDir() {
 	mgr.wordDir = gridLoc{mgr.wordDir.Y, mgr.wordDir.X}
+	draw()
+}
+
+func backspaceHighlight() {
+	t := mgr.board.get(*mgr.highlight)
+	t.sendToTray()
 	draw()
 }
 
