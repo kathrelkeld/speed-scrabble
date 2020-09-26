@@ -10,13 +10,13 @@ var ctx Context     // set during page setUp
 
 func drawTile(t *TileLoc) {
 	ctx.Set("fillStyle", "black")
-	ctx.FillRect(t.canvasLoc, manager.tileSize)
+	ctx.FillRect(t.canvasLoc, mgr.tileSize)
 	if t.invalid {
 		ctx.Set("fillStyle", "red")
 	} else {
 		ctx.Set("fillStyle", "white")
 	}
-	ctx.FillText(t.Value, canvasLoc(Vec(t.canvasLoc).Add(Vec(manager.tileSize).ScaleDown(2))))
+	ctx.FillText(t.Value, canvasLoc(Vec(t.canvasLoc).Add(Vec(mgr.tileSize).ScaleDown(2))))
 	drawHighlight(t.canvasLoc)
 }
 
@@ -24,8 +24,8 @@ func drawTiles() {
 	//ctx.Set("globalAlpha", 1.0)
 	ctx.Set("textAlign", "center")
 	ctx.Set("textBaseline", "middle")
-	ctx.Set("font", fmt.Sprintf("%v", manager.tileSize.X)+"px Arial")
-	for _, t := range manager.tiles {
+	ctx.Set("font", fmt.Sprintf("%v", mgr.tileSize.X)+"px Arial")
+	for _, t := range mgr.tiles {
 		drawTile(t)
 	}
 }
@@ -35,7 +35,7 @@ func drawHighlight(l canvasLoc) {
 	ctx.Set("strokeStyle", "yellow")
 	ctx.Set("lineWidth", 8)
 	ctx.Set("globalAlpha", 0.4)
-	drawRectBetween(l, cAdd(l, canvasLoc(manager.tileSize)), 4)
+	drawRectBetween(l, cAdd(l, canvasLoc(mgr.tileSize)), 4)
 	ctx.ClosePath()
 	ctx.Stroke()
 	ctx.Set("globalAlpha", 1.0)
@@ -79,11 +79,11 @@ func drawGrid(start canvasLoc, gridSize, tileSize sizeV) {
 }
 
 func drawTray() {
-	drawGrid(manager.tray.loc, manager.tray.size, manager.tileSize)
+	drawGrid(mgr.tray.loc, mgr.tray.size, mgr.tileSize)
 }
 
 func drawBoard() {
-	drawGrid(manager.board.loc, manager.board.size, manager.tileSize)
+	drawGrid(mgr.board.loc, mgr.board.size, mgr.tileSize)
 }
 
 func draw() {
@@ -91,8 +91,8 @@ func draw() {
 	drawBoard()
 	drawTray()
 	drawTiles()
-	if manager.movingTile != nil {
+	if mgr.movingTile != nil {
 		// Moving tiles should be on top.
-		drawTile(manager.movingTile)
+		drawTile(mgr.movingTile)
 	}
 }
