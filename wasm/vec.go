@@ -34,3 +34,7 @@ func cAdd(a, b canvasLoc) canvasLoc {
 func gAdd(a, b gridLoc) gridLoc {
 	return gridLoc{a.X + b.X, a.Y + b.Y}
 }
+
+func gMult(a, b gridLoc) gridLoc {
+	return gridLoc{a.X * b.X, a.Y * b.Y}
+}

@@ -29,7 +29,29 @@ func drawTiles() {
 	}
 }
 
+func drawWordDir() {
+	if mgr.highlight == nil {
+		return
+	}
+	start := mgr.board.canvasStart(gAdd(*mgr.highlight, mgr.wordDir))
+	size := sizeV{}
+	if mgr.wordDir.X == 0 {
+		size = sizeV{mgr.tileSize.X, mgr.board.end.Y - start.Y}
+	} else {
+		size = sizeV{mgr.board.end.X - start.X, mgr.tileSize.Y}
+	}
+
+	ctx.Set("globalAlpha", 0.4)
+	ctx.Set("fillStyle", "yellow")
+	ctx.FillRect(start, size)
+
+	ctx.Set("globalAlpha", 1.0)
+}
+
 func drawHighlight() {
+	if mgr.highlight == nil {
+		return
+	}
 	l := mgr.board.canvasStart(*mgr.highlight)
 	ctx.BeginPath()
 	ctx.Set("strokeStyle", "yellow")
@@ -38,6 +60,7 @@ func drawHighlight() {
 	drawRectBetween(l, cAdd(l, canvasLoc(mgr.tileSize)), 4)
 	ctx.ClosePath()
 	ctx.Stroke()
+
 	ctx.Set("globalAlpha", 1.0)
 }
 
@@ -76,13 +99,14 @@ func drawGrid(g *Grid, tileSize sizeV) {
 
 func draw() {
 	ctx.Call("clearRect", 0, 0, canvas.Get("width"), canvas.Get("height"))
+
+	drawWordDir()
+
 	drawGrid(mgr.board, mgr.tileSize)
 	drawGrid(mgr.tray, mgr.tileSize)
 	drawTiles()
 
-	if mgr.highlight != nil {
-		drawHighlight()
-	}
+	drawHighlight()
 	if mgr.movingTile != nil {
 		// Moving tiles should be on top.
 		drawTile(mgr.movingTile)

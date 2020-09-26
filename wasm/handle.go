@@ -81,6 +81,7 @@ type GameManager struct {
 	tileSize   sizeV
 	movingTile *TileLoc
 	highlight  *gridLoc
+	wordDir    gridLoc
 }
 
 func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
@@ -104,6 +105,7 @@ func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
 		},
 		tileCnt:  tileCnt,
 		tileSize: tileSize,
+		wordDir:  gridLoc{1, 0},
 	}
 }
 
@@ -239,7 +241,6 @@ func listenerKeyDown() js.Func {
 		}
 		event := args[0]
 		k := event.Get("key").String()
-		fmt.Println("key", k)
 		switch k {
 		case "ArrowUp":
 			moveHighlight(gridLoc{0, -1})
