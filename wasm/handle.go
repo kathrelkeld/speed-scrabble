@@ -15,22 +15,18 @@ var mgr *GameManager // initiated in page setup.
 var listenerMouseUp js.Func
 var listenerMouseMove js.Func
 
-type sizeV Vec
-type gridLoc Vec
-type canvasLoc Vec
-
-func inTarget(loc, start, end canvasLoc) bool {
+func inTarget(loc, start, end Vec) bool {
 	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
 }
 
 type Grid struct {
 	Grid [][]*Tile
-	loc  canvasLoc
-	end  canvasLoc
-	size sizeV
+	loc  Vec
+	end  Vec
+	size Vec
 }
 
-func newGridInner(size sizeV) [][]*Tile {
+func newGridInner(size Vec) [][]*Tile {
 	var b [][]*Tile
 	for i := 0; i < size.Y; i++ {
 		b = append(b, []*Tile{})
@@ -41,31 +37,31 @@ func newGridInner(size sizeV) [][]*Tile {
 	return b
 }
 
-func (g *Grid) get(l gridLoc) *Tile {
-	return g.Grid[l.Y][l.X]
+func (g *Grid) get(idx Vec) *Tile {
+	return g.Grid[idx.Y][idx.X]
 }
 
-func (g *Grid) set(l gridLoc, tile *Tile) {
-	g.Grid[l.Y][l.X] = tile
+func (g *Grid) set(idx Vec, tile *Tile) {
+	g.Grid[idx.Y][idx.X] = tile
 }
 
-func (g *Grid) inBounds(l canvasLoc) bool {
+func (g *Grid) inBounds(l Vec) bool {
 	return inTarget(l, g.loc, g.end)
 }
 
-func (g *Grid) onGrid(l gridLoc) bool {
-	return l.X >= 0 && l.X < g.size.X && l.Y >= 0 && l.Y < g.size.Y
+func (g *Grid) onGrid(idx Vec) bool {
+	return idx.X >= 0 && idx.X < g.size.X && idx.Y >= 0 && idx.Y < g.size.Y
 }
 
-func (g *Grid) coords(l canvasLoc) gridLoc {
-	return gridLoc{
-		(l.X - g.loc.X) / mgr.tileSize.X,
-		(l.Y - g.loc.Y) / mgr.tileSize.Y,
+func (g *Grid) coords(loc Vec) Vec {
+	return Vec{
+		(loc.X - g.loc.X) / mgr.tileSize.X,
+		(loc.Y - g.loc.Y) / mgr.tileSize.Y,
 	}
 }
 
-func (g *Grid) canvasStart(l gridLoc) canvasLoc {
-	return cAdd(g.loc, canvasLoc(sMult(sizeV(l), mgr.tileSize)))
+func (g *Grid) canvasStart(idx Vec) Vec {
+	return Add(g.loc, Mult(idx, mgr.tileSize))
 }
 
 type GameManager struct {
@@ -73,34 +69,34 @@ type GameManager struct {
 	tray       *Grid
 	tiles      []*Tile
 	tileCnt    int
-	tileSize   sizeV
+	tileSize   Vec
 	movingTile *Tile
-	highlight  *gridLoc
-	wordDir    gridLoc
+	highlight  *Vec
+	wordDir    Vec
 }
 
-func newGameManager(boardSize sizeV, tileCnt int) *GameManager {
-	traySize := sizeV{tileCnt, 1}
-	tileSize := sizeV{35, 35}
-	boardStart := canvasLoc{10, 10}
+func newGameManager(boardSize Vec, tileCnt int) *GameManager {
+	traySize := Vec{tileCnt, 1}
+	tileSize := Vec{35, 35}
+	boardStart := Vec{10, 10}
 	// TODO calculate where this needs to be based on size of board
-	trayStart := canvasLoc{10, 600}
+	trayStart := Vec{10, 600}
 	return &GameManager{
 		board: &Grid{
 			Grid: newGridInner(boardSize),
 			loc:  boardStart,
-			end:  cAdd(boardStart, canvasLoc(sMult(tileSize, boardSize))),
+			end:  Add(boardStart, Mult(tileSize, boardSize)),
 			size: boardSize,
 		},
 		tray: &Grid{
 			Grid: newGridInner(traySize),
 			loc:  trayStart,
-			end:  cAdd(trayStart, canvasLoc(sMult(tileSize, traySize))),
+			end:  Add(trayStart, Mult(tileSize, traySize)),
 			size: traySize,
 		},
 		tileCnt:  tileCnt,
 		tileSize: tileSize,
-		wordDir:  gridLoc{1, 0},
+		wordDir:  Vec{1, 0},
 	}
 }
 
@@ -114,11 +110,11 @@ type Tile struct {
 	// Zone indicates where this tile is, e.g. on the board or moving.
 	Zone int `json:"-"`
 	// Idx is where this tile is on a Grid, assuming it is on a Grid.
-	Idx gridLoc `json:"-"`
+	Idx Vec `json:"-"`
 	// Loc is where this tile should be drawn on the canvas; may or may not match Idx.
-	Loc canvasLoc `json:"-"`
+	Loc Vec `json:"-"`
 	// MoveOffSet is (for ZoneMoving only) how far from the mouse cursor the tile is drawn.
-	MoveOffset canvasLoc `json:"-"`
+	MoveOffset Vec `json:"-"`
 	// Invalid is whether this tile should be drawn as an invalid tile.
 	Invalid bool `json:"-"`
 }
@@ -131,23 +127,23 @@ const (
 )
 
 // addToBoard puts the tile onto the board at the given indices.
-func (t *Tile) addToBoard(idx gridLoc) {
+func (t *Tile) addToBoard(idx Vec) {
 	if prev := mgr.board.get(idx); prev != nil {
 		prev.sendToTray()
 	}
 	mgr.board.set(idx, t)
 	t.Zone = ZoneBoard
 	t.Idx = idx
-	t.Loc = cAdd(mgr.board.loc, canvasLoc(sMult(mgr.tileSize, sizeV(idx))))
+	t.Loc = Add(mgr.board.loc, Mult(mgr.tileSize, idx))
 }
 
 // addToTray puts the tile onto the tray at the given indices.
-func (t *Tile) addToTray(idx gridLoc) {
+func (t *Tile) addToTray(idx Vec) {
 	mgr.tray.set(idx, t)
 	t.Zone = ZoneTray
 	t.Idx = idx
-	t.Loc = cAdd(mgr.tray.loc, canvasLoc(sMult(mgr.tileSize, sizeV(idx))))
-	t.Loc = canvasLoc{
+	t.Loc = Add(mgr.tray.loc, Mult(mgr.tileSize, idx))
+	t.Loc = Vec{
 		mgr.tray.loc.X + mgr.tileSize.X*idx.X,
 		mgr.tray.loc.Y + mgr.tileSize.Y*idx.Y,
 	}
@@ -157,7 +153,7 @@ func (t *Tile) addToTray(idx gridLoc) {
 func (t *Tile) sendToTray() {
 	for j := 0; j < len(mgr.tray.Grid); j++ {
 		for i := 0; i < len(mgr.tray.Grid[0]); i++ {
-			idx := gridLoc{i, j}
+			idx := Vec{i, j}
 			if mgr.tray.get(idx) == nil {
 				t.addToTray(idx)
 				return
@@ -167,11 +163,11 @@ func (t *Tile) sendToTray() {
 	// TODO expand downward if needed
 	mgr.tray.Grid[0] = append(mgr.tray.Grid[0], t)
 	mgr.tray.size.X += 1
-	t.addToTray(gridLoc{len(mgr.tray.Grid[0]) - 1, 0})
+	t.addToTray(Vec{len(mgr.tray.Grid[0]) - 1, 0})
 }
 
 // markInvalidTiles marks the given locations on the board as invalid.
-func markInvalidTiles(coords []gridLoc) {
+func markInvalidTiles(coords []Vec) {
 	for _, c := range coords {
 		t := mgr.board.get(c)
 		if t == nil {
@@ -190,7 +186,7 @@ func markAllTilesValid() {
 }
 
 // onTile returns a tile or nil, depending on whether there is a tile at the given location.
-func onTile(l canvasLoc) *Tile {
+func onTile(l Vec) *Tile {
 	for _, t := range mgr.tiles {
 		if l.X > t.Loc.X && l.X < t.Loc.X+mgr.tileSize.X &&
 			l.Y > t.Loc.Y && l.Y < t.Loc.Y+mgr.tileSize.Y {
@@ -206,14 +202,14 @@ func initializeListeners() {
 		event := args[0]
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
-		releaseTile(canvasLoc{x, y})
+		releaseTile(Vec{x, y})
 		return nil
 	})
 	listenerMouseMove = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
-		moveTile(canvasLoc{x, y})
+		moveTile(Vec{x, y})
 		return nil
 	})
 }
@@ -224,7 +220,7 @@ func listenerMouseDown() js.Func {
 		x := event.Get("offsetX").Int()
 		y := event.Get("offsetY").Int()
 		// TODO do stuff here
-		l := canvasLoc{x, y}
+		l := Vec{x, y}
 		if t := onTile(l); t != nil {
 			clickOnTile(t, l)
 		} else if mgr.board.inBounds(l) {
@@ -243,13 +239,13 @@ func listenerKeyDown() js.Func {
 		k := event.Get("key").String()
 		switch k {
 		case "ArrowUp":
-			moveHighlight(gridLoc{0, -1})
+			moveHighlight(Vec{0, -1})
 		case "ArrowDown":
-			moveHighlight(gridLoc{0, 1})
+			moveHighlight(Vec{0, 1})
 		case "ArrowLeft":
-			moveHighlight(gridLoc{-1, 0})
+			moveHighlight(Vec{-1, 0})
 		case "ArrowRight":
-			moveHighlight(gridLoc{1, 0})
+			moveHighlight(Vec{1, 0})
 		case " ":
 			toggleWordDir()
 		case "Shift":
@@ -270,7 +266,7 @@ func listenerKeyDown() js.Func {
 }
 
 // clickOnTile is called when the player clicks on a tile.
-func clickOnTile(t *Tile, l canvasLoc) {
+func clickOnTile(t *Tile, l Vec) {
 	if mgr.movingTile != nil {
 		mgr.movingTile.sendToTray()
 	}
@@ -281,7 +277,7 @@ func clickOnTile(t *Tile, l canvasLoc) {
 		mgr.tray.set(t.Idx, nil)
 	}
 	t.Zone = ZoneMoving
-	t.MoveOffset = canvasLoc{l.X - t.Loc.X, l.Y - t.Loc.Y}
+	t.MoveOffset = Vec{l.X - t.Loc.X, l.Y - t.Loc.Y}
 
 	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
 	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
@@ -291,18 +287,18 @@ func clickOnTile(t *Tile, l canvasLoc) {
 }
 
 // moveTile is called when the player moves a tile.
-func moveTile(l canvasLoc) {
+func moveTile(l Vec) {
 	if mgr.movingTile == nil {
 		fmt.Println("error - move tile called without a moving tile")
 		return
 	}
 	t := mgr.movingTile
-	t.Loc = canvasLoc{l.X - t.MoveOffset.X, l.Y - t.MoveOffset.Y}
+	t.Loc = Vec{l.X - t.MoveOffset.X, l.Y - t.MoveOffset.Y}
 	draw()
 }
 
 // releaseTile is called when the player releases a tile.
-func releaseTile(l canvasLoc) {
+func releaseTile(l Vec) {
 	if mgr.movingTile == nil {
 		fmt.Println("error - release tile called without a moving tile")
 		return
@@ -339,9 +335,9 @@ func releaseTile(l canvasLoc) {
 
 // moveHighlight moves the highlight in the given direction.
 // There is definitely a highlight before this gets called.
-func moveHighlight(d gridLoc) {
+func moveHighlight(d Vec) {
 	// TODO: figure out whether to skip occupied squares
-	newSpace := gAdd(*mgr.highlight, d)
+	newSpace := Add(*mgr.highlight, d)
 	if mgr.board.onGrid(newSpace) {
 		mgr.highlight = &newSpace
 	}
@@ -366,7 +362,7 @@ func findForHighlight(v string) {
 }
 
 func toggleWordDir() {
-	mgr.wordDir = gridLoc{mgr.wordDir.Y, mgr.wordDir.X}
+	mgr.wordDir = Vec{mgr.wordDir.Y, mgr.wordDir.X}
 	draw()
 }
 
@@ -377,13 +373,13 @@ func backspaceHighlight() {
 }
 
 // HighlightCoords highlights the square at location l, which is definitely on the board.
-func highlightCoords(l gridLoc) {
+func highlightCoords(l Vec) {
 	mgr.highlight = &l
 	draw()
 }
 
 // HighlightCanvas highlights the square at location l, which is definitely on the board.
-func highlightCanvas(l canvasLoc) {
+func highlightCanvas(l Vec) {
 	newH := mgr.board.coords(l)
 	highlightCoords(newH)
 }
@@ -444,7 +440,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			// TODO delete old manager
 		}
 		// TODO tie to actual game size
-		mgr = newGameManager(sizeV{16, 16}, 16)
+		mgr = newGameManager(Vec{16, 16}, 16)
 		var tiles []*Tile
 		err := json.Unmarshal(data, &tiles)
 		if err != nil {
@@ -470,7 +466,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 	case msg.Score:
 
 	case msg.Invalid:
-		var invalid []gridLoc
+		var invalid []Vec
 		err := json.Unmarshal(data, &invalid)
 		if err != nil {
 			fmt.Println("Error reading invalid tiles:", err)

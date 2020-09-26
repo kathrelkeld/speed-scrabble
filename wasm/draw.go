@@ -16,7 +16,7 @@ func drawTile(t *Tile) {
 	} else {
 		ctx.Set("fillStyle", "white")
 	}
-	ctx.FillText(t.Value, canvasLoc(Vec(t.Loc).Add(Vec(mgr.tileSize).ScaleDown(2))))
+	ctx.FillText(t.Value, Add(t.Loc, ScaleDown(mgr.tileSize, 2)))
 }
 
 func drawTiles() {
@@ -33,12 +33,12 @@ func drawWordDir() {
 	if mgr.highlight == nil {
 		return
 	}
-	start := mgr.board.canvasStart(gAdd(*mgr.highlight, mgr.wordDir))
-	size := sizeV{}
+	start := mgr.board.canvasStart(Add(*mgr.highlight, mgr.wordDir))
+	size := Vec{}
 	if mgr.wordDir.X == 0 {
-		size = sizeV{mgr.tileSize.X, mgr.board.end.Y - start.Y}
+		size = Vec{mgr.tileSize.X, mgr.board.end.Y - start.Y}
 	} else {
-		size = sizeV{mgr.board.end.X - start.X, mgr.tileSize.Y}
+		size = Vec{mgr.board.end.X - start.X, mgr.tileSize.Y}
 	}
 
 	ctx.Set("globalAlpha", 0.4)
@@ -57,15 +57,15 @@ func drawHighlight() {
 	ctx.Set("strokeStyle", "yellow")
 	ctx.Set("lineWidth", 8)
 	ctx.Set("globalAlpha", 0.4)
-	drawRectBetween(l, cAdd(l, canvasLoc(mgr.tileSize)), 4)
+	drawRectBetween(l, Add(l, mgr.tileSize), 4)
 	ctx.ClosePath()
 	ctx.Stroke()
 
 	ctx.Set("globalAlpha", 1.0)
 }
 
-func drawRectBetween(a, b canvasLoc, w int) {
-	sides := [][]canvasLoc{
+func drawRectBetween(a, b Vec, w int) {
+	sides := [][]Vec{
 		{{a.X - w, a.Y}, {b.X + w, a.Y}},
 		{{b.X, a.Y - w}, {b.X, b.Y + w}},
 		{{b.X + w, b.Y}, {a.X - w, b.Y}},
@@ -77,21 +77,21 @@ func drawRectBetween(a, b canvasLoc, w int) {
 	}
 }
 
-func drawLineBetween(a, b canvasLoc) {
+func drawLineBetween(a, b Vec) {
 	ctx.MoveTo(a)
 	ctx.LineTo(b)
 }
 
-func drawGrid(g *Grid, tileSize sizeV) {
+func drawGrid(g *Grid, tileSize Vec) {
 	ctx.BeginPath()
 	//ctx.Set("globalAlpha", 1.0)
 	ctx.Set("lineWidth", 2)
 	ctx.Set("strokeStyle", "black")
 	for i := g.loc.X; i <= g.end.X; i += tileSize.X {
-		drawLineBetween(canvasLoc{i, g.loc.Y}, canvasLoc{i, g.end.Y})
+		drawLineBetween(Vec{i, g.loc.Y}, Vec{i, g.end.Y})
 	}
 	for j := g.loc.Y; j <= g.end.Y; j += tileSize.Y {
-		drawLineBetween(canvasLoc{g.loc.X, j}, canvasLoc{g.end.X, j})
+		drawLineBetween(Vec{g.loc.X, j}, Vec{g.end.X, j})
 	}
 	ctx.ClosePath()
 	ctx.Stroke()
