@@ -359,6 +359,7 @@ func moveHighlight(d Vec) {
 // Does nothing if there is already a matching tile present.
 func findForHighlight(v string) {
 	if prev := mgr.board.Get(*mgr.highlight); prev != nil && prev.Value == v {
+		moveHighlight(mgr.wordDir)
 		return
 	}
 	for _, t := range mgr.tiles {
@@ -377,8 +378,10 @@ func toggleWordDir() {
 }
 
 func backspaceHighlight() {
-	t := mgr.board.Get(*mgr.highlight)
-	t.sendToTray()
+	if t := mgr.board.Get(*mgr.highlight); t != nil {
+		t.sendToTray()
+	}
+	moveHighlight(ScaleUp(mgr.wordDir, -1))
 	draw()
 }
 
