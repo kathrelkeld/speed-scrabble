@@ -289,20 +289,18 @@ func listenerKeyDown() js.Func {
 	})
 }
 
-// clickOnTile is called when the player clicks on a tile.
+// clickOnTile is called when the player clicks on a tile at the given canvas location.
 func clickOnTile(t *Tile, l Vec) {
-	t.pickUp()
+	if t.Zone == ZoneBoard {
+		highlightCoords(t.Idx)
+	}
 	if mgr.movingTile != nil {
 		mgr.movingTile.sendToTray()
 	}
+	t.pickUp()
 	mgr.movingTile = t
-	if t.Zone == ZoneBoard {
-		mgr.board.Set(t.Idx, nil)
-	} else if t.Zone == ZoneTray {
-		mgr.tray.Set(t.Idx, nil)
-	}
 	t.Zone = ZoneMoving
-	t.MoveOffset = Vec{l.X - t.Loc.X, l.Y - t.Loc.Y}
+	t.MoveOffset = Sub(l, t.Loc)
 
 	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
 	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
@@ -328,7 +326,6 @@ func releaseTile(l Vec) {
 		fmt.Println("error - release tile called without a moving tile")
 		return
 	}
-	unhighlight()
 	t := mgr.movingTile
 	mgr.movingTile = nil
 
@@ -336,7 +333,9 @@ func releaseTile(l Vec) {
 		// Release tile onto board.
 		coords := mgr.board.coords(l)
 		t.addToBoard(coords)
-		highlightCoords(coords)
+		if mgr.highlight == nil {
+			highlightCoords(coords)
+		}
 	} else if mgr.tray.InCanvas(l) {
 		// Release tile onto tray.
 		coords := mgr.tray.coords(l)
