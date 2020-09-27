@@ -20,63 +20,6 @@ func inTarget(loc, start, end Vec) bool {
 	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
 }
 
-type Grid struct {
-	// Grid is the slice of slices representation of the entire grid.
-	Grid [][]*Tile
-	// Loc is the canvas coordinates where this grid is drawn.
-	Loc Vec
-}
-
-// newInnerGrid creates a slice of slices needed for a Grid struct of the given size.
-func newInnerGrid(size Vec) [][]*Tile {
-	var b [][]*Tile
-	for i := 0; i < size.Y; i++ {
-		b = append(b, []*Tile{})
-		for j := 0; j < size.X; j++ {
-			b[i] = append(b[i], nil)
-		}
-	}
-	return b
-}
-
-func (g *Grid) IdxSize() Vec {
-	return Vec{len(g.Grid[0]), len(g.Grid)}
-}
-
-func (g *Grid) CanvasEnd() Vec {
-	size := g.IdxSize()
-	return Add(g.Loc, Mult(mgr.tileSize, size))
-}
-
-func (g *Grid) Get(idx Vec) *Tile {
-	return g.Grid[idx.Y][idx.X]
-}
-
-func (g *Grid) Set(idx Vec, tile *Tile) {
-	g.Grid[idx.Y][idx.X] = tile
-}
-
-func (g *Grid) InCanvas(l Vec) bool {
-	end := g.CanvasEnd()
-	return inTarget(l, g.Loc, end)
-}
-
-func (g *Grid) InCoords(idx Vec) bool {
-	size := g.IdxSize()
-	return idx.X >= 0 && idx.X < size.X && idx.Y >= 0 && idx.Y < size.Y
-}
-
-func (g *Grid) coords(loc Vec) Vec {
-	return Vec{
-		(loc.X - g.Loc.X) / mgr.tileSize.X,
-		(loc.Y - g.Loc.Y) / mgr.tileSize.Y,
-	}
-}
-
-func (g *Grid) canvasStart(idx Vec) Vec {
-	return Add(g.Loc, Mult(idx, mgr.tileSize))
-}
-
 // GameManager contains the local game state for the currently running game.
 type GameManager struct {
 	board     *Grid
@@ -100,10 +43,12 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 		board: &Grid{
 			Grid: newInnerGrid(boardSize),
 			Loc:  boardStart,
+			Zone: ZoneBoard,
 		},
 		tray: &Grid{
 			Grid: newInnerGrid(traySize),
 			Loc:  trayStart,
+			Zone: ZoneTray,
 		},
 		move: &Move{},
 		highlight: &Highlight{
@@ -111,6 +56,30 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 		},
 		tileSize: tileSize,
 	}
+}
+
+// ShiftBoard moves the entire contents of the board in the given direction, sending the
+// tiles back to the tray if they fall off.
+func ShiftBoard(d Vec) {
+	type Work struct {
+		t *Tile
+		l Vec
+	}
+	var toMove []Work
+	for _, t := range mgr.tiles {
+		if t.Zone == ZoneBoard {
+			next := Add(t.Idx, d)
+			if !mgr.board.InCoords(next) {
+				return
+			} else {
+				toMove = append(toMove, Work{t, next})
+			}
+		}
+	}
+	for _, w := range toMove {
+		w.t.addToBoard(w.l)
+	}
+	draw()
 }
 
 // Tile represents a single tile.  Marshalling must match the slimmer version of Tile
@@ -152,30 +121,18 @@ func (t *Tile) pickUp() {
 
 // addToBoard puts the tile onto the board at the given indices.
 func (t *Tile) addToBoard(idx Vec) {
-	t.pickUp()
 	if prev := mgr.board.Get(idx); prev != nil {
 		prev.sendToTray()
 	}
-	mgr.board.Set(idx, t)
-	t.Zone = ZoneBoard
-	t.Idx = idx
-	t.Loc = Add(mgr.board.Loc, Mult(mgr.tileSize, idx))
+	mgr.board.AddTile(t, idx)
 }
 
 // addToTray puts the tile onto the tray at the given indices.
 func (t *Tile) addToTray(idx Vec) {
-	t.pickUp()
 	if mgr.tray.Get(idx) != nil {
 		t.sendToTray()
 	}
-	mgr.tray.Set(idx, t)
-	t.Zone = ZoneTray
-	t.Idx = idx
-	t.Loc = Add(mgr.tray.Loc, Mult(mgr.tileSize, idx))
-	t.Loc = Vec{
-		mgr.tray.Loc.X + mgr.tileSize.X*idx.X,
-		mgr.tray.Loc.Y + mgr.tileSize.Y*idx.Y,
-	}
+	mgr.tray.AddTile(t, idx)
 }
 
 // sendToTray puts the tile onto the tray at the first available location.
@@ -192,7 +149,7 @@ func (t *Tile) sendToTray() {
 		}
 	}
 	// TODO expand downward if needed
-	mgr.tray.Grid[0] = append(mgr.tray.Grid[0], t)
+	mgr.tray.Grid[0] = append(mgr.tray.Grid[0], nil)
 	t.addToTray(Vec{len(mgr.tray.Grid[0]) - 1, 0})
 }
 
@@ -305,13 +262,17 @@ func listenerKeyDown() js.Func {
 		k := event.Get("key").String()
 		switch k {
 		case "ArrowUp":
-			moveHighlight(Vec{0, -1})
+			//moveHighlight(Vec{0, -1})
+			ShiftBoard(Vec{0, -1})
 		case "ArrowDown":
-			moveHighlight(Vec{0, 1})
+			//moveHighlight(Vec{0, 1})
+			ShiftBoard(Vec{0, 1})
 		case "ArrowLeft":
-			moveHighlight(Vec{-1, 0})
+			//moveHighlight(Vec{-1, 0})
+			ShiftBoard(Vec{-1, 0})
 		case "ArrowRight":
-			moveHighlight(Vec{1, 0})
+			//moveHighlight(Vec{1, 0})
+			ShiftBoard(Vec{1, 0})
 		case " ":
 			toggleWordDir()
 		case "Shift":
