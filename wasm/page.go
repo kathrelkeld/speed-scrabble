@@ -12,17 +12,30 @@ func newButton(name, id string, onclick js.Func) js.Value {
 	return b
 }
 
-func setUpPage() {
-	jsFuncOf := func(f func()) js.Func {
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			f()
-			return nil
-		})
-	}
+func jsFuncOf(f func()) js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		f()
+		draw()
+		return nil
+	})
+}
 
-	initializeListeners()
+func jsEventFuncOf(f func(js.Value)) js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		f(args[0])
+		draw()
+		return nil
+	})
+}
+
+func setUpPage() {
+	// Set the global listener variables which will be used to disable them later.
+	listenerMouseUp = jsEventFuncOf(onMouseUp)
+	listenerMouseMove = jsEventFuncOf(onMouseMove)
+
 	body := js.Global().Get("document").Get("body")
-	js.Global().Get("document").Call("addEventListener", "keydown", listenerKeyDown())
+	js.Global().Get("document").Call("addEventListener", "keydown", jsEventFuncOf(onKeyDown))
+	js.Global().Get("document").Call("addEventListener", "mousedown", jsEventFuncOf(onMouseDown))
 
 	// Add game buttons
 	body.Call("appendChild", newButton("Reset Tiles", "reset", jsFuncOf(sendAllTilesToTray)))
@@ -40,7 +53,7 @@ func setUpPage() {
 	canvas.Set("id", "canvas")
 	canvas.Set("width", 1000)
 	canvas.Set("height", 1000)
-	canvas.Call("addEventListener", "mousedown", listenerMouseDown())
+	canvas.Call("addEventListener", "mousedown", jsEventFuncOf(onMouseDown))
 	body.Call("appendChild", canvas)
 	ctx = Context(canvas.Call("getContext", "2d"))
 

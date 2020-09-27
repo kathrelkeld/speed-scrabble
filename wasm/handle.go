@@ -7,7 +7,6 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-var mgr *GameManager // initiated in page setup.
 func joinGame() {
 	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
 	websocketSend(m)
@@ -22,7 +21,7 @@ func newGame() {
 }
 
 func verify() {
-	// TODO: send only tiles
+	// TODO: send only tiles instead of entire board
 	m, _ := msg.NewSocketData(msg.Verify, mgr.board.Grid)
 	websocketSend(m)
 }
@@ -32,12 +31,7 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 	case msg.PlayerJoined:
 		websocketSendEmpty(msg.RoundReady)
 	case msg.Error:
-	case msg.RoundReady:
-		// Game is ready.  Need to reply with msg.Start player is ready.
 	case msg.Start:
-		if mgr != nil {
-			// TODO delete old manager
-		}
 		// TODO tie to actual game size
 		resetGameManager(Vec{16, 16}, 16)
 		var tiles []*Tile

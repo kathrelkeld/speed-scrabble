@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-// These listeners will be added/removed as needed.
+// These listeners will be added/removed as needed.  Initialized in page setup.
 var listenerMouseUp js.Func
 var listenerMouseMove js.Func
 
@@ -20,173 +20,156 @@ type Move struct {
 	hasMoved   bool
 }
 
-// initializeListners sets the global listener variables for input.
-func initializeListeners() {
-	listenerMouseUp = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if !mgr.move.active {
-			fmt.Println("saw a mouseUp with no active move recorded!")
-			return nil
-		}
-		event := args[0]
-		x := event.Get("offsetX").Int()
-		y := event.Get("offsetY").Int()
-		l := Vec{x, y}
-		if mgr.move.onTile {
-			releaseTile(l)
-		}
-		releaseUpdateHighlight(l)
-		mgr.move = &Move{}
-		canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
-		canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
-		return nil
-	})
-	listenerMouseMove = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if !mgr.move.active {
-			fmt.Println("saw a mouseMove with no active move recorded!")
-			return nil
-		}
-		event := args[0]
-		x := event.Get("offsetX").Int()
-		y := event.Get("offsetY").Int()
-		moveTile(Vec{x, y})
-		return nil
-	})
+type ClickInfo struct {
+	zone   int
+	coords Vec
 }
 
-func listenerMouseDown() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		event := args[0]
-		x := event.Get("offsetX").Int()
-		y := event.Get("offsetY").Int()
-		l := Vec{x, y}
-		mgr.move = &Move{
-			active:     true,
-			startClick: l,
-		}
-		canvas.Call("addEventListener", "mousemove", listenerMouseMove)
-		canvas.Call("addEventListener", "mouseup", listenerMouseUp)
-
-		if t := onTile(l); t != nil {
-			clickOnTile(t, l)
-		}
-
-		return nil
-	})
+func clickOffset(event js.Value) Vec {
+	return Vec{event.Get("offsetX").Int(), event.Get("offsetY").Int()}
 }
 
-func listenerKeyDown() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if !mgr.highlight.active {
-			return nil
-		}
-		event := args[0]
-		k := event.Get("key").String()
-		switch k {
-		case "ArrowUp":
-			if event.Get("ctrlKey").Bool() {
-				ShiftBoard(Vec{0, -1})
-			} else {
-				moveHighlight(Vec{0, -1})
-			}
-		case "ArrowDown":
-			if event.Get("ctrlKey").Bool() {
-				ShiftBoard(Vec{0, 1})
-			} else {
-				moveHighlight(Vec{0, 1})
-			}
-		case "ArrowLeft":
-			if event.Get("ctrlKey").Bool() {
-				ShiftBoard(Vec{-1, 0})
-			} else {
-				moveHighlight(Vec{-1, 0})
-			}
-		case "ArrowRight":
-			if event.Get("ctrlKey").Bool() {
-				ShiftBoard(Vec{1, 0})
-			} else {
-				moveHighlight(Vec{1, 0})
-			}
-		case " ":
-			toggleWordDir()
-		case "Shift":
-			toggleWordDir()
-		case "Enter":
-		case "Backspace":
-			backspaceHighlight()
-		case "Delete":
-			backspaceHighlight()
-		default:
-			if len(k) == 1 && unicode.IsLetter(rune(k[0])) {
-				findForHighlight(string(unicode.ToUpper(rune(k[0]))))
-			}
-		}
-		event.Call("preventDefault")
-		return nil
-	})
+func clickInfo(l Vec) ClickInfo {
+	switch {
+	case mgr.board.InCanvas(l):
+		return ClickInfo{ZoneBoard, mgr.board.coords(l)}
+	case mgr.tray.InCanvas(l):
+		return ClickInfo{ZoneTray, mgr.tray.coords(l)}
+	default:
+		return ClickInfo{ZoneOffScreen, Vec{-1, -1}}
+	}
 }
 
-// clickOnTile is called when the player clicks on a tile at the given canvas location.
-func clickOnTile(t *Tile, l Vec) {
-	t.pickUp()
-	mgr.move.onTile = true
-	mgr.move.tile = t
-	mgr.move.startZone = t.Zone
-	mgr.move.startIdx = t.Idx
-	t.Zone = ZoneMoving
-	t.MoveOffset = Sub(l, t.Loc)
+func onMouseDown(event js.Value) {
+	l := clickOffset(event)
+	mgr.move = &Move{
+		active:     true,
+		startClick: l,
+	}
+	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
+	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
 
-	draw()
+	if t := onTile(l); t != nil {
+		// Set this tile as moving.
+		t.pickUp()
+		mgr.move.onTile = true
+		mgr.move.tile = t
+		mgr.move.startZone = t.Zone
+		mgr.move.startIdx = t.Idx
+		t.Zone = ZoneMoving
+		t.MoveOffset = Sub(l, t.Loc)
+	}
 }
 
-// moveTile is called when the player moves a tile with the mouse.
-func moveTile(l Vec) {
+func onMouseMove(event js.Value) {
+	if !mgr.move.active {
+		fmt.Println("saw a mouseMove with no active move recorded!")
+		return
+	}
+	l := clickOffset(event)
 	mgr.move.hasMoved = true
 	if mgr.move.onTile {
+		// Update tile currently in motion.
 		t := mgr.move.tile
-		t.Loc = Vec{l.X - t.MoveOffset.X, l.Y - t.MoveOffset.Y}
-		draw()
+		t.Loc = Sub(l, t.MoveOffset)
 	}
 }
 
-// releaseTile is called when the player releases a tile.
-func releaseTile(l Vec) {
-	t := mgr.move.tile
+func onMouseUp(event js.Value) {
+	if !mgr.move.active {
+		fmt.Println("saw a mouseUp with no active move recorded!")
+		return
+	}
+	l := clickOffset(event)
+	ci := clickInfo(l)
 
-	switch {
-	case mgr.board.InCanvas(l):
-		// Release tile onto board.
-		coords := mgr.board.coords(l)
-		t.addToBoard(coords)
-		if !mgr.highlight.active {
-			highlightCoords(coords)
+	// Drop tile here or send to tray if not possible.
+	if mgr.move.onTile {
+		t := mgr.move.tile
+		switch ci.zone {
+		case ZoneBoard:
+			// Release tile onto board.
+			t.addToBoard(ci.coords)
+			if !mgr.highlight.active {
+				highlightCoords(ci.coords)
+			}
+		case ZoneTray:
+			// Release tile onto tray.
+			t.addToTray(ci.coords)
+		default:
+			t.sendToTray()
 		}
-	case mgr.tray.InCanvas(l):
-		// Release tile onto tray.
-		coords := mgr.tray.coords(l)
-		t.addToTray(coords)
-	default:
-		t.sendToTray()
+
+		// Mark all tiles as valid when a new tile is placed on or from the board.
+		if mgr.move.startZone == ZoneBoard || t.Zone == ZoneBoard {
+			markAllTilesValid()
+		}
 	}
 
-	markAllTilesValid()
-	draw()
-}
-
-// releaseUpdateHighlight is called when the player releases a click/drag.
-func releaseUpdateHighlight(l Vec) {
-	switch {
-	case mgr.board.InCanvas(l):
-		coords := mgr.board.coords(l)
+	// Update highlight, if needed.
+	switch ci.zone {
+	case ZoneBoard:
 		if mgr.move.startClick == l && !mgr.move.hasMoved {
-			if mgr.highlight.active && mgr.highlight.idx == coords {
+			if mgr.highlight.active && mgr.highlight.idx == ci.coords {
 				// click was on highlight, so toggle instead.
 				toggleWordDir()
 			} else {
-				highlightCoords(coords)
+				highlightCoords(ci.coords)
 			}
 		}
 	default:
 		unhighlight()
 	}
-	draw()
+
+	// Reset stored move info and listeners.
+	mgr.move = &Move{}
+	canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
+	canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
+}
+
+func onKeyDown(event js.Value) {
+	if !mgr.highlight.active {
+		return
+	}
+	k := event.Get("key").String()
+	switch k {
+	case "ArrowUp":
+		if event.Get("ctrlKey").Bool() {
+			ShiftBoard(Vec{0, -1})
+		} else {
+			moveHighlight(Vec{0, -1})
+		}
+	case "ArrowDown":
+		if event.Get("ctrlKey").Bool() {
+			ShiftBoard(Vec{0, 1})
+		} else {
+			moveHighlight(Vec{0, 1})
+		}
+	case "ArrowLeft":
+		if event.Get("ctrlKey").Bool() {
+			ShiftBoard(Vec{-1, 0})
+		} else {
+			moveHighlight(Vec{-1, 0})
+		}
+	case "ArrowRight":
+		if event.Get("ctrlKey").Bool() {
+			ShiftBoard(Vec{1, 0})
+		} else {
+			moveHighlight(Vec{1, 0})
+		}
+	case " ":
+		toggleWordDir()
+	case "Shift":
+		toggleWordDir()
+	case "Enter":
+	case "Backspace":
+		backspaceHighlight()
+	case "Delete":
+		backspaceHighlight()
+	default:
+		if len(k) == 1 && unicode.IsLetter(rune(k[0])) {
+			findForHighlight(string(unicode.ToUpper(rune(k[0]))))
+		}
+	}
+	event.Call("preventDefault")
 }

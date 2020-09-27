@@ -5,6 +5,8 @@ import (
 	"math/rand"
 )
 
+var mgr *GameManager // initiated in page setup.
+
 // GameManager contains the local game state for the currently running game.
 type GameManager struct {
 	board     *Grid
@@ -63,10 +65,11 @@ type Tile struct {
 }
 
 const (
-	ZoneNone   int = iota // initial untracked tile
-	ZoneTray              // on the tray
-	ZoneBoard             // on the board
-	ZoneMoving            // actively moving
+	ZoneNone      int = iota // initial untracked tile
+	ZoneTray                 // on the tray
+	ZoneBoard                // on the board
+	ZoneMoving               // actively moving
+	ZoneOffScreen            // not on any known area
 )
 
 // pickUp removes the tile from its current grid, if any.
