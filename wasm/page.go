@@ -13,16 +13,23 @@ func newButton(name, id string, onclick js.Func) js.Value {
 }
 
 func setUpPage() {
+	jsFuncOf := func(f func()) js.Func {
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			f()
+			return nil
+		})
+	}
+
 	initializeListeners()
 	body := js.Global().Get("document").Get("body")
 	js.Global().Get("document").Call("addEventListener", "keydown", listenerKeyDown())
 
 	// Add game buttons
-	body.Call("appendChild", newButton("Reset Tiles", "reset", sendAllTilesToTray()))
-	body.Call("appendChild", newButton("+1 Tile", "addTile", requestNewTile()))
-	body.Call("appendChild", newButton("NewGame", "newGame", newGame()))
-	body.Call("appendChild", newButton("Verify", "verify", verify()))
-	body.Call("appendChild", newButton("Shuffle Tiles", "shuffle", shuffleTiles()))
+	body.Call("appendChild", newButton("Reset Tiles", "reset", jsFuncOf(sendAllTilesToTray)))
+	body.Call("appendChild", newButton("+1 Tile", "addTile", jsFuncOf(requestNewTile)))
+	body.Call("appendChild", newButton("NewGame", "newGame", jsFuncOf(newGame)))
+	body.Call("appendChild", newButton("Verify", "verify", jsFuncOf(verify)))
+	body.Call("appendChild", newButton("Shuffle Tiles", "shuffle", jsFuncOf(shuffleTiles)))
 
 	messages := js.Global().Get("document").Call("createElement", "textbox")
 	messages.Set("id", "messages")

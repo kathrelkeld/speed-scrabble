@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"syscall/js"
 )
 
 // GameManager contains the local game state for the currently running game.
@@ -170,38 +169,32 @@ func ShiftBoard(d Vec) {
 }
 
 // sendAllTilestoTray sends all tiles from the board into the tray.
-func sendAllTilesToTray() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		for _, t := range mgr.tiles {
-			if t.Zone == ZoneBoard {
-				t.sendToTray()
-			}
+func sendAllTilesToTray() {
+	for _, t := range mgr.tiles {
+		if t.Zone == ZoneBoard {
+			t.sendToTray()
 		}
-		unhighlight()
-		markAllTilesValid()
-		draw()
-		return nil
-	})
+	}
+	unhighlight()
+	markAllTilesValid()
+	draw()
 }
 
 // shuffleTiles reorders the tiles in the tray.
-func shuffleTiles() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		var ts []*Tile
-		for _, t := range mgr.tiles {
-			if t.Zone == ZoneTray {
-				t.pickUp()
-				ts = append(ts, t)
-			}
+func shuffleTiles() {
+	var ts []*Tile
+	for _, t := range mgr.tiles {
+		if t.Zone == ZoneTray {
+			t.pickUp()
+			ts = append(ts, t)
 		}
-		rand.Shuffle(len(ts), func(i, j int) {
-			ts[i], ts[j] = ts[j], ts[i]
-		})
-		for _, t := range ts {
-			t.sendToTray()
-		}
-		markAllTilesValid()
-		draw()
-		return nil
+	}
+	rand.Shuffle(len(ts), func(i, j int) {
+		ts[i], ts[j] = ts[j], ts[i]
 	})
+	for _, t := range ts {
+		t.sendToTray()
+	}
+	markAllTilesValid()
+	draw()
 }

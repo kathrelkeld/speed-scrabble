@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"syscall/js"
 
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
@@ -14,25 +13,18 @@ func joinGame() {
 	websocketSend(m)
 }
 
-func requestNewTile() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		websocketSendEmpty(msg.AddTile)
-		return nil
-	})
+func requestNewTile() {
+	websocketSendEmpty(msg.AddTile)
 }
-func newGame() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		websocketSendEmpty(msg.RoundReady)
-		return nil
-	})
+
+func newGame() {
+	websocketSendEmpty(msg.RoundReady)
 }
-func verify() js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// TODO: add tiles
-		m, _ := msg.NewSocketData(msg.Verify, mgr.board.Grid)
-		websocketSend(m)
-		return nil
-	})
+
+func verify() {
+	// TODO: send only tiles
+	m, _ := msg.NewSocketData(msg.Verify, mgr.board.Grid)
+	websocketSend(m)
 }
 
 func handleSocketMsg(t msg.Type, data []byte) int {
