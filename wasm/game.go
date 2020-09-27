@@ -6,10 +6,6 @@ import (
 	"syscall/js"
 )
 
-func inTarget(loc, start, end Vec) bool {
-	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
-}
-
 // GameManager contains the local game state for the currently running game.
 type GameManager struct {
 	board     *Grid

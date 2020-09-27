@@ -26,3 +26,7 @@ func ScaleDown(v Vec, a int) Vec {
 func Mult(a, b Vec) Vec {
 	return Vec{a.X * b.X, a.Y * b.Y}
 }
+
+func (loc Vec) inTarget(start, end Vec) bool {
+	return loc.X > start.X && loc.X < end.X && loc.Y > start.Y && loc.Y < end.Y
+}

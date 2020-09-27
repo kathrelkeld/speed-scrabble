@@ -47,7 +47,7 @@ func (g *Grid) Set(idx Vec, tile *Tile) {
 
 func (g *Grid) InCanvas(l Vec) bool {
 	end := g.CanvasEnd()
-	return inTarget(l, g.Loc, end)
+	return l.inTarget(g.Loc, end)
 }
 
 func (g *Grid) InCoords(idx Vec) bool {
