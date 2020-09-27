@@ -262,17 +262,29 @@ func listenerKeyDown() js.Func {
 		k := event.Get("key").String()
 		switch k {
 		case "ArrowUp":
-			//moveHighlight(Vec{0, -1})
-			ShiftBoard(Vec{0, -1})
+			if event.Get("ctrlKey").Bool() {
+				ShiftBoard(Vec{0, -1})
+			} else {
+				moveHighlight(Vec{0, -1})
+			}
 		case "ArrowDown":
-			//moveHighlight(Vec{0, 1})
-			ShiftBoard(Vec{0, 1})
+			if event.Get("ctrlKey").Bool() {
+				ShiftBoard(Vec{0, 1})
+			} else {
+				moveHighlight(Vec{0, 1})
+			}
 		case "ArrowLeft":
-			//moveHighlight(Vec{-1, 0})
-			ShiftBoard(Vec{-1, 0})
+			if event.Get("ctrlKey").Bool() {
+				ShiftBoard(Vec{-1, 0})
+			} else {
+				moveHighlight(Vec{-1, 0})
+			}
 		case "ArrowRight":
-			//moveHighlight(Vec{1, 0})
-			ShiftBoard(Vec{1, 0})
+			if event.Get("ctrlKey").Bool() {
+				ShiftBoard(Vec{1, 0})
+			} else {
+				moveHighlight(Vec{1, 0})
+			}
 		case " ":
 			toggleWordDir()
 		case "Shift":
