@@ -12,6 +12,7 @@ func newButton(name, id string, onclick js.Func) js.Value {
 	return b
 }
 
+// jsFuncOf takes a function with no inputs and returns a js.Func that calls it.
 func jsFuncOf(f func()) js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		f()
@@ -20,6 +21,7 @@ func jsFuncOf(f func()) js.Func {
 	})
 }
 
+// jsEventFuncOf takes a function with an event input and returns a js.Func that calls it.
 func jsEventFuncOf(f func(js.Value)) js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		f(args[0])
@@ -29,7 +31,7 @@ func jsEventFuncOf(f func(js.Value)) js.Func {
 }
 
 func setUpPage() {
-	// Set the global listener variables which will be used to disable them later.
+	// Set the global listener variables which will be used to enable/disable them later.
 	listenerMouseUp = jsEventFuncOf(onMouseUp)
 	listenerMouseMove = jsEventFuncOf(onMouseMove)
 

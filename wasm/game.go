@@ -168,7 +168,6 @@ func ShiftBoard(d Vec) {
 	for _, w := range toMove {
 		w.t.addToBoard(w.l)
 	}
-	draw()
 }
 
 // sendAllTilestoTray sends all tiles from the board into the tray.
@@ -180,7 +179,6 @@ func sendAllTilesToTray() {
 	}
 	unhighlight()
 	markAllTilesValid()
-	draw()
 }
 
 // shuffleTiles reorders the tiles in the tray.
@@ -199,5 +197,4 @@ func shuffleTiles() {
 		t.sendToTray()
 	}
 	markAllTilesValid()
-	draw()
 }
