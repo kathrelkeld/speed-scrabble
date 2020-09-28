@@ -2,9 +2,9 @@ package game
 
 import (
 	"log"
-)
 
-var Assigner = NewGameAssigner()
+	"github.com/gorilla/websocket"
+)
 
 // The GameAssigner manages game assignments.
 // TODO make game assigner keep track of active clients too.
@@ -19,7 +19,7 @@ type GameAssigner struct {
 	quit chan struct{}
 }
 
-// StartGameAssigner starts and returns a new GameAssigner.
+// NewGameAssigner returns a new GameAssigner.
 func NewGameAssigner() *GameAssigner {
 	return &GameAssigner{
 		NewGameChan:  make(chan MsgGameRequest),
@@ -35,7 +35,7 @@ func (ga *GameAssigner) Run() {
 		select {
 		case req := <-ga.NewGameChan:
 			if ga.games["global"] == nil {
-				ga.games["global"] = StartNewGame("global")
+				ga.games["global"] = ga.StartNewGame("global")
 			}
 			log.Println("GameAssigner assigning client to game")
 			ga.games["global"].AddPlayer(req.C)
@@ -53,6 +53,32 @@ func (ga *GameAssigner) Close() {
 	close(ga.quit)
 	close(ga.NewGameChan)
 	close(ga.GameExitChan)
+}
+
+// StartNewClient creates a new Client with the given websocket connection.
+func (ga *GameAssigner) StartNewClient(conn *websocket.Conn) *Client {
+	c := &Client{
+		conn: conn,
+		ga:   ga,
+	}
+	go c.readSocketMsgs()
+	return c
+}
+
+// StartNewGame is used by the GameAssigner to make a new game.
+func (ga *GameAssigner) StartNewGame(name string) *Game {
+	game := &Game{
+		Name:            name,
+		tiles:           newTiles(),
+		clients:         make(map[*Client]bool),
+		lastScores:      make(map[*Client]*Score),
+		toGameChan:      make(chan MsgFromClient),
+		startingTileCnt: 12,
+		ga:              ga,
+		quit:            make(chan struct{}),
+	}
+	go game.Run()
+	return game
 }
 
 // A MsgGameRequest is sent from a Client to ask to create or join a new Game.

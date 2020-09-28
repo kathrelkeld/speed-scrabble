@@ -23,9 +23,10 @@ type Game struct {
 	Name            string
 	tiles           []Tile
 	clients         map[*Client]bool
-	lastScores      map[*Client]Score
+	lastScores      map[*Client]*Score
 	state           gameState
 	startingTileCnt int
+	ga              *GameAssigner
 
 	toGameChan chan MsgFromClient
 	quit       chan struct{}
@@ -38,25 +39,10 @@ type MsgFromClient struct {
 	Data interface{}
 }
 
-// StartNewGame is used by the GameAssigner to make a new game.
-func StartNewGame(name string) *Game {
-	game := &Game{
-		Name:            name,
-		tiles:           newTiles(),
-		clients:         make(map[*Client]bool),
-		lastScores:      make(map[*Client]Score),
-		toGameChan:      make(chan MsgFromClient),
-		startingTileCnt: 12,
-		quit:            make(chan struct{}),
-	}
-	go game.Run()
-	return game
-}
-
 // Close game: notify GameAssigner and any clients; close any active channels or go routines.
 func (g *Game) Close() {
 	g.state = StateOver
-	Assigner.GameExitChan <- g
+	g.ga.GameExitChan <- g
 	for c := range g.clients {
 		c.Close()
 	}
@@ -131,7 +117,7 @@ func (g *Game) Run() {
 				if g.state != StateWaitingRoundReady {
 					// If game is not waiting, start a new round and start waiting.
 					g.tiles = newTiles()
-					g.lastScores = make(map[*Client]Score)
+					g.lastScores = make(map[*Client]*Score)
 					g.resetClientReply()
 					g.state = StateWaitingRoundReady
 					g.sendToAllClientsExcept(cm.C, msg.RoundReady, nil)

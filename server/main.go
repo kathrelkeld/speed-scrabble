@@ -14,26 +14,48 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func newConnection(w http.ResponseWriter, req *http.Request) {
+type Server struct {
+	ga       *game.GameAssigner
+	serveMux *http.ServeMux
+}
+
+func NewServer() *Server {
+	ga := game.NewGameAssigner()
+	serveMux := http.NewServeMux()
+
+	s := &Server{
+		ga:       ga,
+		serveMux: serveMux,
+	}
+	fileserver := http.FileServer(http.Dir("public"))
+	redirect := http.RedirectHandler("public/game.html", http.StatusFound)
+	serveMux.Handle("/", redirect)
+	serveMux.Handle("/public/", http.StripPrefix("/public/", fileserver))
+	serveMux.HandleFunc("/connect", s.newConnection)
+
+	return s
+}
+
+func (s *Server) newConnection(w http.ResponseWriter, req *http.Request) {
 	log.Println("Handling new client.")
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		log.Println("error making connection:", err)
 		return
 	}
-	game.StartNewClient(conn)
+	s.ga.StartNewClient(conn)
 }
 
 func main() {
-	go game.Assigner.Run()
-	const port = ":8888"
-	fileserver := http.FileServer(http.Dir("public"))
-	redirect := http.RedirectHandler("public/game.html", http.StatusFound)
+	server := NewServer()
+	go server.ga.Run()
+	game.InitDictionary()
 
-	http.Handle("/", redirect)
-	http.Handle("/public/", http.StripPrefix("/public/", fileserver))
-	http.HandleFunc("/connect", newConnection)
-
-	log.Println("Now listening on", port)
-	log.Fatal(http.ListenAndServe(port, nil))
+	const addr = ":8888"
+	s := &http.Server{
+		Addr:    addr,
+		Handler: server.serveMux,
+	}
+	log.Println("Now listening on", addr)
+	log.Fatal(s.ListenAndServe())
 }

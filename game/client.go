@@ -14,17 +14,9 @@ import (
 type Client struct {
 	Name      string
 	conn      *websocket.Conn
+	ga        *GameAssigner
 	game      *Game
 	servedCnt int
-}
-
-// StartNewClient creates a new Client with the given websocket connection.
-func StartNewClient(conn *websocket.Conn) *Client {
-	c := &Client{
-		conn: conn,
-	}
-	go c.readSocketMsgs()
-	return c
 }
 
 // Close is used to request the Client exit gracefully.
@@ -54,7 +46,7 @@ func (c *Client) readSocketMsgs() {
 
 		log.Println("Got websocket message of type", t)
 		if t == msg.JoinGame {
-			Assigner.NewGameChan <- MsgGameRequest{c}
+			c.ga.NewGameChan <- MsgGameRequest{c}
 		} else if c.game != nil {
 			c.game.toGameChan <- MsgFromClient{t, c, b}
 		} else {
@@ -97,19 +89,19 @@ func (c *Client) addTile() {
 }
 
 // ScoreMarshalledBoard takes a JSON board and returns a score for that board.
-func (c *Client) ScoreMarshalledBoard(d []byte) Score {
+func (c *Client) ScoreMarshalledBoard(d []byte) *Score {
 	var board Board
 	err := json.Unmarshal(d, &board)
 	if err != nil {
 		log.Println("error:", err)
-		return Score{}
+		return nil
 	}
 	return board.scoreBoard(c.game.tiles[:c.servedCnt])
 }
 
 // checkGameWon takes a JSON board and either replies with invalid tiles or indicates the end
 // of the round.
-func (c *Client) checkGameWon(d []byte) (bool, Score) {
+func (c *Client) checkGameWon(d []byte) (bool, *Score) {
 	score := c.ScoreMarshalledBoard(d)
 	if !score.Win {
 		// Send back invalid tiles.
@@ -118,7 +110,7 @@ func (c *Client) checkGameWon(d []byte) (bool, Score) {
 			invalid = append(invalid, k)
 		}
 		c.sendSocketMsg(msg.Invalid, invalid)
-		return false, Score{}
+		return false, nil
 	}
 	// Tell game that round is over.
 	return true, score
