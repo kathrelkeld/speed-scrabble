@@ -8,6 +8,7 @@ import (
 )
 
 func makeTestBoard(x, y int, letters ...string) Board {
+	globalDict = loadDictionary("test_data/dict.txt")
 	b := Board{}
 	if len(letters) != x*y {
 		log.Println("Letters count did not match given dimensions!")
