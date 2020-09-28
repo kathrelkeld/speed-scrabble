@@ -2,6 +2,7 @@ package game
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -79,6 +80,14 @@ func (a TileSet) union(b TileSet) {
 	}
 }
 
+func (ts TileSet) MarshalJSON() ([]byte, error) {
+	var vs []Vec
+	for v := range ts {
+		vs = append(vs, v)
+	}
+	return json.Marshal(vs)
+}
+
 // A Board is a grid of tiles of arbitrary size.
 // This type is used to unmarshal a board from the page client.
 type Board [][]*Tile
@@ -116,7 +125,7 @@ type Score struct {
 	Unconnected TileSet  // Tiles not part of the best scoring component.
 	Words       []Word   // Words found in the dictionary.
 	Nonwords    []Word   // Words not found in the dictionary.
-	Msg         msg.Type // OK or Error message to send to player.
+	msg         msg.Type // OK or Error message to send to player.
 }
 
 func (s *Score) String() string {
@@ -372,7 +381,7 @@ func (b Board) scoreBoard(tilesServed []Tile) *Score {
 	fmt.Println("Tiles served:", tilesServed)
 	result := &Score{
 		Win: true,
-		Msg: msg.Score,
+		msg: msg.Score,
 	}
 
 	// Calculate score if board is empty.
@@ -393,9 +402,10 @@ func (b Board) scoreBoard(tilesServed []Tile) *Score {
 	// A winning board has a score of 0.
 	if result.Pts != 0 {
 		result.Win = false
+		result.msg = msg.Invalid
 		if result.Pts < 0 {
 			log.Println("Impossible score: cheating suspected!")
-			result.Msg = msg.Error
+			result.msg = msg.Error
 			result.Pts = maxPts
 		}
 	}
@@ -404,7 +414,7 @@ func (b Board) scoreBoard(tilesServed []Tile) *Score {
 		result.Win = false
 		if len(boardSet) > len(tilesServed) {
 			log.Println("Impossible number of tiles: cheating suspected!")
-			result.Msg = msg.Error
+			result.msg = msg.Error
 			result.Pts = maxPts
 			return result
 		}
@@ -413,7 +423,7 @@ func (b Board) scoreBoard(tilesServed []Tile) *Score {
 	if !compareTileValues(tilesServed, boardSet) {
 		result.Win = false
 		log.Println("Impossibly mismatched tiles: cheating suspected!")
-		result.Msg = msg.Error
+		result.msg = msg.Error
 		result.Pts = maxPts
 		return result
 	}

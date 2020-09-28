@@ -99,19 +99,7 @@ func (c *Client) ScoreMarshalledBoard(d []byte) *Score {
 	return board.scoreBoard(c.game.tiles[:c.servedCnt])
 }
 
-// checkGameWon takes a JSON board and either replies with invalid tiles or indicates the end
-// of the round.
-func (c *Client) checkGameWon(d []byte) (bool, *Score) {
-	score := c.ScoreMarshalledBoard(d)
-	if !score.Win {
-		// Send back invalid tiles.
-		var invalid []Vec
-		for k := range score.Invalid {
-			invalid = append(invalid, k)
-		}
-		c.sendSocketMsg(msg.Invalid, invalid)
-		return false, nil
-	}
-	// Tell game that round is over.
-	return true, score
+func (c *Client) SendScore(s *Score) {
+	// TODO: remove some of this data?
+	c.sendSocketMsg(s.msg, s)
 }

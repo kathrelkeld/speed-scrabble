@@ -7,6 +7,24 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
+type TileSet map[Vec]*Tile
+
+type Word struct {
+	Start Vec
+	End   Vec
+	Value string
+}
+
+type Score struct {
+	Win         bool   // Whether the board ends the game or not.
+	Pts         int    // The numerical score (lower is better).
+	Valid       []Vec  // Tiles which were part of no valid words.
+	Invalid     []Vec  // Tiles which were part of no valid words.
+	Unconnected []Vec  // Tiles not part of the best scoring component.
+	Words       []Word // Words found in the dictionary.
+	Nonwords    []Word // Words not found in the dictionary.
+}
+
 func joinGame() {
 	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
 	websocketSend(m)
@@ -57,15 +75,20 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 		tile.sendToTray()
 		draw()
 	case msg.Score:
-
-	case msg.Invalid:
-		var invalid []Vec
-		err := json.Unmarshal(data, &invalid)
+		var score Score
+		err := json.Unmarshal(data, &score)
 		if err != nil {
-			fmt.Println("Error reading invalid tiles:", err)
+			fmt.Println("Error reading score:", err)
 			return 1
 		}
-		markInvalidTiles(invalid)
+	case msg.Invalid:
+		var score Score
+		err := json.Unmarshal(data, &score)
+		if err != nil {
+			fmt.Println("Error reading score:", err)
+			return 1
+		}
+		markInvalidTiles(score.Invalid)
 		draw()
 	case msg.GameInfo:
 		var s msg.GameInfoData

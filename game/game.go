@@ -145,12 +145,20 @@ func (g *Game) Run() {
 					cm.C.sendSocketMsg(msg.Error, "Error: no active game!")
 				} else {
 					board := cm.Data.([]byte)
-					if ok, score := cm.C.checkGameWon(board); ok {
+					score := cm.C.ScoreMarshalledBoard(board)
+					cm.C.SendScore(score)
+					if score.Win {
 						g.lastScores[cm.C] = score
 						g.resetClientReply()
 						g.state = StateWaitingScores
 						g.clients[cm.C] = true
 						g.sendToAllClientsExcept(cm.C, msg.SendBoard, nil)
+						if g.allClientsTrue() {
+							//TODO: get scores to determine a winner
+							g.sendToAllClients(msg.Result, nil)
+							g.state = StateOver
+							log.Println("Game is over!")
+						}
 					}
 				}
 			case msg.SendBoard:
@@ -160,13 +168,15 @@ func (g *Game) Run() {
 				}
 				board := cm.Data.([]byte)
 				score := cm.C.ScoreMarshalledBoard(board)
+				cm.C.SendScore(score)
 				g.clients[cm.C] = true
 				g.lastScores[cm.C] = score
 				// TODO: add timeout
 				if g.allClientsTrue() {
 					//TODO: get scores to determine a winner
-					g.sendToAllClients(msg.Score, nil)
+					g.sendToAllClients(msg.Result, nil)
 					g.state = StateOver
+					log.Println("Game is over!")
 				}
 			case msg.Exit:
 				cm.C.Close()
@@ -174,6 +184,7 @@ func (g *Game) Run() {
 				log.Println("runGame: Removing client from game")
 				if len(g.clients) == 0 {
 					g.Close()
+					log.Println("No more clients - closing game")
 				}
 			}
 		case <-g.quit:

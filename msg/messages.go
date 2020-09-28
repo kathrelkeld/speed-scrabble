@@ -26,6 +26,7 @@ const (
 	Invalid
 	OutOfTiles
 	PlayerJoined
+	Result
 )
 
 var TypeToString = map[Type]string{
@@ -42,6 +43,7 @@ var TypeToString = map[Type]string{
 	Invalid:      "invalid",
 	OutOfTiles:   "outOfTiles",
 	PlayerJoined: "playerJoined",
+	Result:       "result",
 }
 
 func (mt Type) String() string {
