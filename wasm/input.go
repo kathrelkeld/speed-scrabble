@@ -6,10 +6,6 @@ import (
 	"unicode"
 )
 
-// These listeners will be added/removed as needed.  Initialized in page setup.
-var listenerMouseUp js.Func
-var listenerMouseMove js.Func
-
 type Move struct {
 	active     bool
 	onTile     bool
@@ -46,8 +42,7 @@ func onMouseDown(event js.Value) {
 		active:     true,
 		startClick: l,
 	}
-	canvas.Call("addEventListener", "mousemove", listenerMouseMove)
-	canvas.Call("addEventListener", "mouseup", listenerMouseUp)
+	mgr.listens.InMove()
 
 	if t := onTile(l); t != nil {
 		// Set this tile as moving.
@@ -123,8 +118,7 @@ func onMouseUp(event js.Value) {
 
 	// Reset stored move info and listeners.
 	mgr.move = &Move{}
-	canvas.Call("removeEventListener", "mousemove", listenerMouseMove)
-	canvas.Call("removeEventListener", "mouseup", listenerMouseUp)
+	mgr.listens.EndMove()
 }
 
 func onKeyDown(event js.Value) {
@@ -171,5 +165,4 @@ func onKeyDown(event js.Value) {
 			findForHighlight(string(unicode.ToUpper(rune(k[0]))))
 		}
 	}
-	event.Call("preventDefault")
 }

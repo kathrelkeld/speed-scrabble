@@ -15,6 +15,7 @@ type GameManager struct {
 	tileSize  Vec        // The canvas size of a single tile.
 	move      *Move      // Current move action.
 	highlight *Highlight // Current board highlight.
+	listens   Listeners
 }
 
 // resetGameManager resets the global variable mgr with a new state for a new game.
@@ -42,6 +43,7 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 			dir: Vec{1, 0},
 		},
 		tileSize: tileSize,
+		listens:  NewListeners(),
 	}
 }
 
@@ -196,5 +198,4 @@ func shuffleTiles() {
 	for _, t := range ts {
 		t.sendToTray()
 	}
-	markAllTilesValid()
 }

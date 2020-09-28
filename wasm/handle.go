@@ -18,7 +18,7 @@ type Word struct {
 type Score struct {
 	Win         bool   // Whether the board ends the game or not.
 	Pts         int    // The numerical score (lower is better).
-	Valid       []Vec  // Tiles which were part of no valid words.
+	Valid       []Vec  // Tiles which were part of valid words.
 	Invalid     []Vec  // Tiles which were part of no valid words.
 	Unconnected []Vec  // Tiles not part of the best scoring component.
 	Words       []Word // Words found in the dictionary.
@@ -63,6 +63,8 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			mgr.tiles = append(mgr.tiles, tile)
 			tile.sendToTray()
 		}
+		mgr.listens.NewGame()
+		EnableGameButtons()
 		draw()
 	case msg.AddTile:
 		var tile *Tile
@@ -81,6 +83,10 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			fmt.Println("Error reading score:", err)
 			return 1
 		}
+		mgr.listens.EndGame()
+		DisableGameButtons()
+		unhighlight()
+		markAllTilesValid()
 	case msg.Invalid:
 		var score Score
 		err := json.Unmarshal(data, &score)
