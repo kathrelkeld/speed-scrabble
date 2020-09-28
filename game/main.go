@@ -2,8 +2,6 @@ package game
 
 import (
 	"log"
-
-	"github.com/gorilla/websocket"
 )
 
 // The GameAssigner manages game assignments.
@@ -56,7 +54,7 @@ func (ga *GameAssigner) Close() {
 }
 
 // StartNewClient creates a new Client with the given websocket connection.
-func (ga *GameAssigner) StartNewClient(conn *websocket.Conn) *Client {
+func (ga *GameAssigner) StartNewClient(conn WebsocketConn) *Client {
 	c := &Client{
 		conn: conn,
 		ga:   ga,
@@ -85,4 +83,10 @@ func (ga *GameAssigner) StartNewGame(name string) *Game {
 type MsgGameRequest struct {
 	// TODO: allow client to defined desired parameters.
 	C *Client
+}
+
+type WebsocketConn interface {
+	ReadMessage() (int, []byte, error)
+	WriteMessage(int, []byte) error
+	Close() error
 }

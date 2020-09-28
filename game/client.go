@@ -13,7 +13,7 @@ import (
 // and keeping state for this player.
 type Client struct {
 	Name      string
-	conn      *websocket.Conn
+	conn      WebsocketConn
 	ga        *GameAssigner
 	game      *Game
 	servedCnt int
