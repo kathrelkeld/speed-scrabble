@@ -5,21 +5,29 @@ import (
 	"math/rand"
 )
 
-var mgr *GameManager // initiated in page setup.
+const (
+	StateInit int = iota
+	StatePlaying
+	StateGameOver
+)
 
 // GameManager contains the local game state for the currently running game.
 type GameManager struct {
+	state     int
 	board     *Grid
 	tray      *Grid
-	tiles     []*Tile    // All given tiles, regardless of their location.
-	tileSize  Vec        // The canvas size of a single tile.
+	tiles     []*Tile // All given tiles, regardless of their location.
+	tileSize  Vec     // The canvas size of a single tile.
+	badWords  []Word
 	move      *Move      // Current move action.
 	highlight *Highlight // Current board highlight.
 	listens   Listeners
+	ctx       Context
+	canvas    Canvas
 }
 
-// resetGameManager resets the global variable mgr with a new state for a new game.
-func resetGameManager(boardSize Vec, tileCnt int) {
+// NewGameManager resets the global variable mgr with a new state for a new game.
+func NewGameManager(boardSize Vec, tileCnt int) *GameManager {
 	traySize := Vec{tileCnt, 1} // Initial tray is one row.
 
 	// TODO calculate where these need to be based on size of board
@@ -27,7 +35,7 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 	boardStart := Vec{10, 10}
 	trayStart := Vec{10, 600}
 
-	mgr = &GameManager{
+	mgr := &GameManager{
 		board: &Grid{
 			Grid: newInnerGrid(boardSize),
 			Loc:  boardStart,
@@ -43,8 +51,22 @@ func resetGameManager(boardSize Vec, tileCnt int) {
 			dir: Vec{1, 0},
 		},
 		tileSize: tileSize,
-		listens:  NewListeners(),
 	}
+	mgr.board.mgr = mgr
+	mgr.tray.mgr = mgr
+	return mgr
+}
+
+func (mgr *GameManager) Reset() {
+	// TODO figure out what to do about tileCnt
+	next := NewGameManager(mgr.board.IdxSize(), 16)
+	mgr.state = next.state
+	mgr.board = next.board
+	mgr.tray = next.tray
+	mgr.tiles = next.tiles
+	mgr.badWords = next.badWords
+	mgr.move = next.move
+	mgr.highlight = next.highlight
 }
 
 // Tile represents a single tile.  Marshalling must match the slimmer version of Tile
@@ -62,8 +84,10 @@ type Tile struct {
 	Loc Vec `json:"-"`
 	// MoveOffSet is (for ZoneMoving only) how far from the mouse cursor the tile is drawn.
 	MoveOffset Vec `json:"-"`
-	// Invalid is whether this tile should be drawn as an invalid tile.
-	Invalid bool `json:"-"`
+	// State is whether this tile should be drawn as an invalid or unused tile.
+	State int `json:"-"`
+	// mgr references the parent GameManager which added this tile.
+	mgr *GameManager
 }
 
 const (
@@ -74,72 +98,85 @@ const (
 	ZoneOffScreen            // not on any known area
 )
 
+const (
+	TileStateValid int = iota
+	TileStateInvalid
+	TileStateUnused
+)
+
 // pickUp removes the tile from its current grid, if any.
 func (t *Tile) pickUp() {
 	switch t.Zone {
 	case ZoneTray:
-		mgr.tray.Set(t.Idx, nil)
+		t.mgr.tray.Set(t.Idx, nil)
 	case ZoneBoard:
-		mgr.board.Set(t.Idx, nil)
+		t.mgr.board.Set(t.Idx, nil)
 	}
 	t.Zone = ZoneNone
 }
 
 // addToBoard puts the tile onto the board at the given indices.
 func (t *Tile) addToBoard(idx Vec) {
-	if prev := mgr.board.Get(idx); prev != nil {
+	if prev := t.mgr.board.Get(idx); prev != nil {
 		prev.sendToTray()
 	}
-	mgr.board.AddTile(t, idx)
+	t.mgr.board.AddTile(t, idx)
 }
 
 // addToTray puts the tile onto the tray at the given indices.
 func (t *Tile) addToTray(idx Vec) {
-	if mgr.tray.Get(idx) != nil {
+	if t.mgr.tray.Get(idx) != nil {
 		t.sendToTray()
 	}
-	mgr.tray.AddTile(t, idx)
+	t.mgr.tray.AddTile(t, idx)
 }
 
 // sendToTray puts the tile onto the tray at the first available location.
 func (t *Tile) sendToTray() {
 	t.pickUp()
-	traySize := mgr.tray.IdxSize()
+	traySize := t.mgr.tray.IdxSize()
 	for j := 0; j < traySize.Y; j++ {
 		for i := 0; i < traySize.X; i++ {
 			idx := Vec{i, j}
-			if mgr.tray.Get(idx) == nil {
+			if t.mgr.tray.Get(idx) == nil {
 				t.addToTray(idx)
 				return
 			}
 		}
 	}
 	// TODO expand downward if needed
-	mgr.tray.Grid[0] = append(mgr.tray.Grid[0], nil)
-	t.addToTray(Vec{len(mgr.tray.Grid[0]) - 1, 0})
+	t.mgr.tray.Grid[0] = append(t.mgr.tray.Grid[0], nil)
+	t.addToTray(Vec{len(t.mgr.tray.Grid[0]) - 1, 0})
 }
 
-// markInvalidTiles marks the given locations on the board as invalid.
-func markInvalidTiles(coords []Vec) {
+func (mgr *GameManager) markTiles(state int, coords []Vec) {
 	for _, c := range coords {
 		t := mgr.board.Get(c)
 		if t == nil {
 			fmt.Println("Verify marked a non-tile as invalid?")
 			return
 		}
-		t.Invalid = true
+		t.State = state
 	}
 }
 
+// markInvalidTiles marks the given locations on the board as invalid.
+func (mgr *GameManager) markInvalidAndUnusedTiles(invalid, unused []Vec, badWords []Word) {
+	mgr.markTiles(TileStateInvalid, invalid)
+	mgr.markTiles(TileStateUnused, unused)
+	mgr.badWords = badWords
+}
+
 // markAllTilesValid undoes markInvalidTiles.
-func markAllTilesValid() {
+func (mgr *GameManager) unmarkAllTiles() {
+	mgr.badWords = []Word{}
 	for _, t := range mgr.tiles {
-		t.Invalid = false
+		t.State = TileStateValid
 	}
 }
 
 // onTile returns a tile or nil, depending on whether there is a tile at the given location.
-func onTile(l Vec) *Tile {
+func (mgr *GameManager) onTile(l Vec) *Tile {
 	for _, t := range mgr.tiles {
 		if l.X > t.Loc.X && l.X < t.Loc.X+mgr.tileSize.X &&
 			l.Y > t.Loc.Y && l.Y < t.Loc.Y+mgr.tileSize.Y {
@@ -151,7 +188,7 @@ func onTile(l Vec) *Tile {
 
 // ShiftBoard moves the entire contents of the board in the given direction, sending the
 // tiles back to the tray if they fall off.
-func ShiftBoard(d Vec) {
+func (mgr *GameManager) ShiftBoard(d Vec) {
 	type Work struct {
 		t *Tile
 		l Vec
@@ -173,18 +210,18 @@ func ShiftBoard(d Vec) {
 }
 
 // sendAllTilestoTray sends all tiles from the board into the tray.
-func sendAllTilesToTray() {
+func (mgr *GameManager) sendAllTilesToTray() {
 	for _, t := range mgr.tiles {
 		if t.Zone == ZoneBoard {
 			t.sendToTray()
 		}
 	}
-	unhighlight()
-	markAllTilesValid()
+	mgr.unhighlight()
+	mgr.unmarkAllTiles()
 }
 
 // shuffleTiles reorders the tiles in the tray.
-func shuffleTiles() {
+func (mgr *GameManager) shuffleTiles() {
 	var ts []*Tile
 	for _, t := range mgr.tiles {
 		if t.Zone == ZoneTray {

@@ -2,34 +2,56 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 )
 
-var canvas js.Value // set during page setUp
-var ctx Context     // set during page setUp
-
-func drawTile(t *Tile) {
-	ctx.Set("fillStyle", "black")
-	ctx.FillRect(t.Loc, mgr.tileSize)
-	if t.Invalid {
-		ctx.Set("fillStyle", "red")
-	} else {
-		ctx.Set("fillStyle", "white")
+func (mgr *GameManager) drawTile(t *Tile) {
+	// Draw box.
+	switch t.State {
+	case TileStateInvalid:
+		mgr.ctx.Set("fillStyle", "red")
+	default:
+		mgr.ctx.Set("fillStyle", "black")
 	}
-	ctx.FillText(t.Value, Add(t.Loc, ScaleDown(mgr.tileSize, 2)))
+	mgr.ctx.FillRect(t.Loc, mgr.tileSize)
+
+	// Draw letter;
+	switch t.State {
+	case TileStateUnused:
+		mgr.ctx.Set("fillStyle", "grey")
+	default:
+		mgr.ctx.Set("fillStyle", "white")
+	}
+	mgr.ctx.FillText(t.Value, Add(t.Loc, ScaleDown(mgr.tileSize, 2)))
 }
 
-func drawTiles() {
-	//ctx.Set("globalAlpha", 1.0)
-	ctx.Set("textAlign", "center")
-	ctx.Set("textBaseline", "middle")
-	ctx.Set("font", fmt.Sprintf("%v", mgr.tileSize.X)+"px Arial")
+func (mgr *GameManager) drawTiles() {
+	//mgr.ctx.Set("globalAlpha", 1.0)
+	mgr.ctx.Set("textAlign", "center")
+	mgr.ctx.Set("textBaseline", "middle")
+	mgr.ctx.Set("font", fmt.Sprintf("%v", mgr.tileSize.X)+"px Arial")
 	for _, t := range mgr.tiles {
-		drawTile(t)
+		mgr.drawTile(t)
 	}
 }
 
-func drawWordDir() {
+func (mgr *GameManager) drawBadWords() {
+	if len(mgr.badWords) == 0 {
+		return
+	}
+	mgr.ctx.BeginPath()
+	mgr.ctx.Set("lineWidth", 2)
+	mgr.ctx.Set("strokeStyle", "blue")
+	for _, w := range mgr.badWords {
+		tileCenter := ScaleDown(mgr.tileSize, 2)
+		start := Add(mgr.board.canvasStart(w.Start), tileCenter)
+		end := Add(mgr.board.canvasStart(w.End), tileCenter)
+		mgr.drawLineBetween(start, end)
+	}
+	mgr.ctx.ClosePath()
+	mgr.ctx.Stroke()
+}
+
+func (mgr *GameManager) drawWordDir() {
 	if !mgr.highlight.active {
 		return
 	}
@@ -42,30 +64,30 @@ func drawWordDir() {
 		size = Vec{end.X - start.X, mgr.tileSize.Y}
 	}
 
-	ctx.Set("globalAlpha", 0.4)
-	ctx.Set("fillStyle", "yellow")
-	ctx.FillRect(start, size)
+	mgr.ctx.Set("globalAlpha", 0.4)
+	mgr.ctx.Set("fillStyle", "yellow")
+	mgr.ctx.FillRect(start, size)
 
-	ctx.Set("globalAlpha", 1.0)
+	mgr.ctx.Set("globalAlpha", 1.0)
 }
 
-func drawHighlight() {
+func (mgr *GameManager) drawHighlight() {
 	if !mgr.highlight.active {
 		return
 	}
 	l := mgr.board.canvasStart(mgr.highlight.idx)
-	ctx.BeginPath()
-	ctx.Set("strokeStyle", "yellow")
-	ctx.Set("lineWidth", 8)
-	ctx.Set("globalAlpha", 0.4)
-	drawRectBetween(l, Add(l, mgr.tileSize), 4)
-	ctx.ClosePath()
-	ctx.Stroke()
+	mgr.ctx.BeginPath()
+	mgr.ctx.Set("strokeStyle", "yellow")
+	mgr.ctx.Set("lineWidth", 8)
+	mgr.ctx.Set("globalAlpha", 0.4)
+	mgr.drawRectBetween(l, Add(l, mgr.tileSize), 4)
+	mgr.ctx.ClosePath()
+	mgr.ctx.Stroke()
 
-	ctx.Set("globalAlpha", 1.0)
+	mgr.ctx.Set("globalAlpha", 1.0)
 }
 
-func drawRectBetween(a, b Vec, w int) {
+func (mgr *GameManager) drawRectBetween(a, b Vec, w int) {
 	sides := [][]Vec{
 		{{a.X - w, a.Y}, {b.X + w, a.Y}},
 		{{b.X, a.Y - w}, {b.X, b.Y + w}},
@@ -73,44 +95,53 @@ func drawRectBetween(a, b Vec, w int) {
 		{{a.X, b.Y + w}, {a.X, a.Y - w}},
 	}
 	for i := 0; i < len(sides); i++ {
-		ctx.MoveTo(sides[i][0])
-		ctx.LineTo(sides[i][1])
+		mgr.ctx.MoveTo(sides[i][0])
+		mgr.ctx.LineTo(sides[i][1])
 	}
 }
 
-func drawLineBetween(a, b Vec) {
-	ctx.MoveTo(a)
-	ctx.LineTo(b)
+func (mgr *GameManager) drawLineBetween(a, b Vec) {
+	mgr.ctx.MoveTo(a)
+	mgr.ctx.LineTo(b)
 }
 
-func drawGrid(g *Grid, tileSize Vec) {
-	ctx.BeginPath()
-	//ctx.Set("globalAlpha", 1.0)
-	ctx.Set("lineWidth", 2)
-	ctx.Set("strokeStyle", "black")
+func (mgr *GameManager) drawGrid(g *Grid, tileSize Vec) {
+	mgr.ctx.BeginPath()
+	//mgr.ctx.Set("globalAlpha", 1.0)
+	mgr.ctx.Set("lineWidth", 2)
+	mgr.ctx.Set("strokeStyle", "black")
 	end := g.CanvasEnd()
 	for i := g.Loc.X; i <= end.X; i += tileSize.X {
-		drawLineBetween(Vec{i, g.Loc.Y}, Vec{i, end.Y})
+		mgr.drawLineBetween(Vec{i, g.Loc.Y}, Vec{i, end.Y})
 	}
 	for j := g.Loc.Y; j <= end.Y; j += tileSize.Y {
-		drawLineBetween(Vec{g.Loc.X, j}, Vec{end.X, j})
+		mgr.drawLineBetween(Vec{g.Loc.X, j}, Vec{end.X, j})
 	}
-	ctx.ClosePath()
-	ctx.Stroke()
+	mgr.ctx.ClosePath()
+	mgr.ctx.Stroke()
 }
 
-func draw() {
-	ctx.Call("clearRect", 0, 0, canvas.Get("width"), canvas.Get("height"))
+func (mgr *GameManager) draw() {
+	if mgr.ctx.IsNull() || mgr.canvas.IsNull() {
+		return
+	}
 
-	drawWordDir()
+	mgr.ctx.Clear(Vec{0, 0}, mgr.canvas.Size())
+	if mgr.state != StatePlaying {
+		return
+	}
 
-	drawGrid(mgr.board, mgr.tileSize)
-	drawGrid(mgr.tray, mgr.tileSize)
-	drawTiles()
+	mgr.drawWordDir()
 
-	drawHighlight()
+	mgr.drawGrid(mgr.board, mgr.tileSize)
+	mgr.drawGrid(mgr.tray, mgr.tileSize)
+	mgr.drawTiles()
+
+	mgr.drawBadWords()
+
+	mgr.drawHighlight()
 	if mgr.move.active && mgr.move.onTile {
 		// Moving tiles should be on top.
-		drawTile(mgr.move.tile)
+		mgr.drawTile(mgr.move.tile)
 	}
 }

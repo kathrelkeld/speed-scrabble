@@ -25,33 +25,35 @@ type Score struct {
 	Nonwords    []Word // Words not found in the dictionary.
 }
 
-func joinGame() {
+func (mgr *GameManager) joinGame() {
 	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
 	websocketSend(m)
 }
 
-func requestNewTile() {
+func (mgr *GameManager) requestNewTile() {
 	websocketSendEmpty(msg.AddTile)
 }
 
-func newGame() {
-	websocketSendEmpty(msg.RoundReady)
+func (mgr *GameManager) newGame() {
+	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
+	websocketSend(m)
+	//websocketSendEmpty(msg.RoundReady)
 }
 
-func verify() {
+func (mgr *GameManager) verify() {
 	// TODO: send only tiles instead of entire board
 	m, _ := msg.NewSocketData(msg.Verify, mgr.board.Grid)
 	websocketSend(m)
 }
 
-func handleSocketMsg(t msg.Type, data []byte) int {
+func (mgr *GameManager) handleSocketMsg(t msg.Type, data []byte) int {
 	switch t {
 	case msg.PlayerJoined:
 		websocketSendEmpty(msg.RoundReady)
 	case msg.Error:
 	case msg.Start:
 		// TODO tie to actual game size
-		resetGameManager(Vec{16, 16}, 16)
+		mgr.Reset()
 		var tiles []*Tile
 		err := json.Unmarshal(data, &tiles)
 		if err != nil {
@@ -60,12 +62,14 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 		}
 		fmt.Println("current tiles:", tiles)
 		for _, tile := range tiles {
+			tile.mgr = mgr
 			mgr.tiles = append(mgr.tiles, tile)
 			tile.sendToTray()
 		}
 		mgr.listens.NewGame()
+		mgr.state = StatePlaying
 		EnableGameButtons()
-		draw()
+		mgr.draw()
 	case msg.AddTile:
 		var tile *Tile
 		err := json.Unmarshal(data, &tile)
@@ -73,9 +77,10 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			fmt.Println("Error reading game status:", err)
 			return 1
 		}
+		tile.mgr = mgr
 		mgr.tiles = append(mgr.tiles, tile)
 		tile.sendToTray()
-		draw()
+		mgr.draw()
 	case msg.Score:
 		var score Score
 		err := json.Unmarshal(data, &score)
@@ -85,8 +90,10 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 		}
 		mgr.listens.EndGame()
 		DisableGameButtons()
-		unhighlight()
-		markAllTilesValid()
+		mgr.unhighlight()
+		mgr.unmarkAllTiles()
+		mgr.draw()
+		mgr.state = StateGameOver
 	case msg.Invalid:
 		var score Score
 		err := json.Unmarshal(data, &score)
@@ -94,8 +101,8 @@ func handleSocketMsg(t msg.Type, data []byte) int {
 			fmt.Println("Error reading score:", err)
 			return 1
 		}
-		markInvalidTiles(score.Invalid)
-		draw()
+		mgr.markInvalidAndUnusedTiles(score.Invalid, score.Unconnected, score.Nonwords)
+		mgr.draw()
 	case msg.GameInfo:
 		var s msg.GameInfoData
 		err := json.Unmarshal(data, &s)

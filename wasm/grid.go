@@ -6,6 +6,7 @@ type Grid struct {
 	// Loc is the canvas coordinates where this grid is drawn.
 	Loc  Vec
 	Zone int
+	mgr  *GameManager
 }
 
 // newInnerGrid creates a slice of slices needed for a Grid struct of the given size.
@@ -25,7 +26,7 @@ func (g *Grid) AddTile(t *Tile, idx Vec) {
 	g.Set(idx, t)
 	t.Zone = g.Zone
 	t.Idx = idx
-	t.Loc = Add(g.Loc, Mult(mgr.tileSize, idx))
+	t.Loc = Add(g.Loc, Mult(g.mgr.tileSize, idx))
 }
 
 func (g *Grid) IdxSize() Vec {
@@ -34,7 +35,7 @@ func (g *Grid) IdxSize() Vec {
 
 func (g *Grid) CanvasEnd() Vec {
 	size := g.IdxSize()
-	return Add(g.Loc, Mult(mgr.tileSize, size))
+	return Add(g.Loc, Mult(g.mgr.tileSize, size))
 }
 
 func (g *Grid) Get(idx Vec) *Tile {
@@ -57,11 +58,11 @@ func (g *Grid) InCoords(idx Vec) bool {
 
 func (g *Grid) coords(loc Vec) Vec {
 	return Vec{
-		(loc.X - g.Loc.X) / mgr.tileSize.X,
-		(loc.Y - g.Loc.Y) / mgr.tileSize.Y,
+		(loc.X - g.Loc.X) / g.mgr.tileSize.X,
+		(loc.Y - g.Loc.Y) / g.mgr.tileSize.Y,
 	}
 }
 
 func (g *Grid) canvasStart(idx Vec) Vec {
-	return Add(g.Loc, Mult(idx, mgr.tileSize))
+	return Add(g.Loc, Mult(idx, g.mgr.tileSize))
 }

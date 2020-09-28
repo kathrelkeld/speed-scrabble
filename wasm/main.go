@@ -23,7 +23,7 @@ func websocketSend(b []byte) {
 	soc.Call("send", v)
 }
 
-func websocketGet() js.Func {
+func (mgr *GameManager) websocketGet() js.Func {
 	// args = onmessage event
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("Getting message through websocket")
@@ -37,15 +37,14 @@ func websocketGet() js.Func {
 		m = m[1:]
 
 		// TODO handle error
-		_ = handleSocketMsg(t, m)
+		_ = mgr.handleSocketMsg(t, m)
 		return nil
 	})
 }
 
-func newSocketWrapper() js.Func {
+func (mgr *GameManager) newSocketWrapper() js.Func {
 	onOpen := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("websocket open")
-		joinGame()
 		return nil
 	})
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -64,14 +63,16 @@ func newSocketWrapper() js.Func {
 		fmt.Println(wsPrefix + host + "/connect")
 		ws := js.Global().Get("WebSocket").New(wsPrefix + host + "/connect")
 		js.Global().Set("socket", ws)
-		ws.Call("addEventListener", "message", websocketGet())
+		ws.Call("addEventListener", "message", mgr.websocketGet())
 		ws.Call("addEventListener", "open", onOpen)
 		return nil
 	})
 }
 
 func main() {
-	setUpPage()
-	newSocketWrapper().Invoke()
+	mgr := NewGameManager(Vec{16, 16}, 16)
+	mgr.setUpPage()
+	mgr.listens = NewListeners(mgr)
+	mgr.newSocketWrapper().Invoke()
 	<-make(chan bool)
 }

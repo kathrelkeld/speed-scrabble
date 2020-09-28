@@ -7,64 +7,59 @@ type Highlight struct {
 }
 
 // moveHighlight moves the highlight in the given direction.
-// There is definitely a highlight before this gets called.
-func moveHighlight(d Vec) {
-	// TODO: figure out whether to skip occupied squares
+func (mgr *GameManager) moveHighlight(d Vec) {
+	if !mgr.highlight.active {
+		return
+	}
 	newSpace := Add(mgr.highlight.idx, d)
 	if mgr.board.InCoords(newSpace) {
 		mgr.highlight.idx = newSpace
 	}
-	draw()
 }
 
 // findForHighlight finds a tile of value v in the tray and moves it to the highlight.
 // There is definitely a highlight before this gets called.
 // Does nothing if there is already a matching tile present.
-func findForHighlight(v string) {
+func (mgr *GameManager) findForHighlight(v string) {
 	if prev := mgr.board.Get(mgr.highlight.idx); prev != nil && prev.Value == v {
-		moveHighlight(mgr.highlight.dir)
+		mgr.moveHighlight(mgr.highlight.dir)
 		return
 	}
 	for _, t := range mgr.tiles {
 		if t.Zone == ZoneTray && t.Value == v {
 			t.addToBoard(mgr.highlight.idx)
-			moveHighlight(mgr.highlight.dir)
-			draw()
+			mgr.moveHighlight(mgr.highlight.dir)
 			return
 		}
 	}
 }
 
-func toggleWordDir() {
+func (mgr *GameManager) toggleWordDir() {
 	mgr.highlight.dir = Vec{mgr.highlight.dir.Y, mgr.highlight.dir.X}
-	draw()
 }
 
-func backspaceHighlight() {
+func (mgr *GameManager) backspaceHighlight() {
 	if t := mgr.board.Get(mgr.highlight.idx); t != nil {
 		t.sendToTray()
 	}
-	moveHighlight(ScaleUp(mgr.highlight.dir, -1))
-	draw()
+	mgr.moveHighlight(ScaleUp(mgr.highlight.dir, -1))
 }
 
 // highlightCoords highlights the square at location l, which is definitely on the board.
-func highlightCoords(l Vec) {
+func (mgr *GameManager) highlightCoords(l Vec) {
 	mgr.highlight.active = true
 	mgr.highlight.idx = l
-	draw()
 }
 
 // highlightCanvas highlights the square at location l, which is definitely on the board.
-func highlightCanvas(l Vec) {
+func (mgr *GameManager) highlightCanvas(l Vec) {
 	newH := mgr.board.coords(l)
-	highlightCoords(newH)
+	mgr.highlightCoords(newH)
 }
 
 // unhighlight removes all active highlights.
-func unhighlight() {
+func (mgr *GameManager) unhighlight() {
 	mgr.highlight.active = false
 	mgr.highlight.idx = Vec{-1, -1}
 	mgr.highlight.dir = Vec{1, 0}
-	draw()
 }

@@ -41,3 +41,11 @@ func (c Context) BeginPath() {
 func (c Context) ClosePath() {
 	js.Value(c).Call("closePath")
 }
+
+func (c Context) Clear(start, end Vec) {
+	js.Value(c).Call("clearRect", start.X, start.Y, end.X, end.Y)
+}
+
+func (c Context) IsNull() bool {
+	return js.Value(c).IsNull()
+}
