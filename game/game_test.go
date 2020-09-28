@@ -1,60 +1,86 @@
 package game
 
 import (
-	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-type FakeWebSocketConn struct {
-	socketMsgChan chan msg.Socket
-	lastSent      msg.Socket
-	t             *testing.T
+type FakeWebsocketConn struct {
+	chRead   chan []byte
+	chWrite  chan []byte
+	lastSent []byte
+	lastRead []byte
+	t        *testing.T
 }
 
-func (conn FakeWebSocketConn) ReadMessage() (int, []byte, error) {
-	m := <-conn.socketMsgChan
-	j, err := json.Marshal(m)
-	if err != nil {
-		conn.t.Errorf("Error while marshalling %v", m)
+func (conn *FakeWebsocketConn) ReadMessage() (int, []byte, error) {
+	m := <-conn.chWrite
+	conn.lastSent = m
+	return 1, m, nil
+}
+
+func (conn *FakeWebsocketConn) WriteMessage(i int, b []byte) error {
+	conn.lastRead = b
+	conn.chRead <- b
+	return nil
+}
+
+func (conn *FakeWebsocketConn) Close() error { return nil }
+
+func (conn *FakeWebsocketConn) sendMsg(t msg.Type, d interface{}) {
+	m, _ := msg.NewSocketData(t, d)
+	conn.chWrite <- m
+}
+
+func (conn *FakeWebsocketConn) waitForMsg(t msg.Type) []byte {
+	select {
+	case m := <-conn.chRead:
+		if got := msg.Type(m[0]); got != t {
+			conn.t.Errorf("Got message of %v, expected %v", got, t)
+		}
+		return m[1:]
+	case <-time.After(1 * time.Second):
+		conn.t.Errorf("Timeout waiting for message of type %v", t)
 	}
-	return 1, j, err
+	return []byte{}
 }
 
-func (conn FakeWebSocketConn) WriteMessage(i int, b []byte) error {
-	var m msg.Socket
-	err := json.Unmarshal(b, &m)
-	if err != nil {
-		conn.t.Errorf("Error while unmarshalling %v", string(b))
+func NewFakeWebsocketConn(t *testing.T) *FakeWebsocketConn {
+	return &FakeWebsocketConn{
+		chRead:  make(chan []byte),
+		chWrite: make(chan []byte),
+		t:       t,
 	}
-	return err
-}
-
-// Call this instead of handling an incoming websocket request
-func runTestClient(t *testing.T) (*Client, FakeWebSocketConn) {
-	c := makeNewClient()
-	conn := FakeWebSocketConn{make(chan msg.Socket), msg.Socket{}, t}
-	c.conn = conn
-	go c.readSocketMsgs()
-	go c.runClient()
-	return c, conn
 }
 
 func TestExitMessage(t *testing.T) {
-	_, conn := runTestClient(t)
-	defer close(conn.socketMsgChan)
-	m, _ := msg.NewSocket(msg.Exit, nil)
-	conn.socketMsgChan <- m
+	ga := NewGameAssigner()
+	go ga.Run()
+	if len(ga.games) != 0 {
+		t.Errorf("Game count pre-client: Got %v; Expected 0", len(ga.games))
+	}
+
+	conn := NewFakeWebsocketConn(t)
+	ga.StartNewClient(conn)
+	conn.waitForMsg(msg.PlayerJoined)
+
+	if len(ga.games) != 1 {
+		t.Errorf("Game count adding a single client: Got %v; Expected 1", len(ga.games))
+	}
+
+	// TODO actual check
 }
 
 func TestSynchonousStart(t *testing.T) {
-	_, connA := runTestClient(t)
-	defer close(connA.socketMsgChan)
-	_, connB := runTestClient(t)
-	defer close(connB.socketMsgChan)
-	m, _ := msg.NewSocket(msg.JoinGame, nil)
-	connA.socketMsgChan <- m
-	connB.socketMsgChan <- m
-	m, _ = msg.NewSocket(msg.Start, nil)
+	ga := NewGameAssigner()
+	connA := NewFakeWebsocketConn(t)
+	ga.StartNewClient(connA)
+	connB := NewFakeWebsocketConn(t)
+	ga.StartNewClient(connB)
+
+	// TODO actual check
+	connA.sendMsg(msg.Start, nil)
+	connB.sendMsg(msg.Start, nil)
 }
