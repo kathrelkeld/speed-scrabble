@@ -27,29 +27,32 @@ type Score struct {
 
 func (mgr *GameManager) joinGame() {
 	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
-	websocketSend(m)
+	mgr.websocketSend(m)
 }
 
 func (mgr *GameManager) requestNewTile() {
-	websocketSendEmpty(msg.AddTile)
+	mgr.websocketSendEmpty(msg.AddTile)
 }
 
 func (mgr *GameManager) newGame() {
-	m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
-	websocketSend(m)
-	//websocketSendEmpty(msg.RoundReady)
+	if mgr.state == StateNoGame {
+		m, _ := msg.NewSocketData(msg.JoinGame, "NAME")
+		mgr.websocketSend(m)
+	} else {
+		mgr.websocketSendEmpty(msg.RoundReady)
+	}
 }
 
 func (mgr *GameManager) verify() {
 	// TODO: send only tiles instead of entire board
 	m, _ := msg.NewSocketData(msg.Verify, mgr.board.Grid)
-	websocketSend(m)
+	mgr.websocketSend(m)
 }
 
 func (mgr *GameManager) handleSocketMsg(t msg.Type, data []byte) int {
 	switch t {
 	case msg.PlayerJoined:
-		websocketSendEmpty(msg.RoundReady)
+		mgr.websocketSendEmpty(msg.RoundReady)
 	case msg.Error:
 	case msg.Start:
 		// TODO tie to actual game size
@@ -81,7 +84,7 @@ func (mgr *GameManager) handleSocketMsg(t msg.Type, data []byte) int {
 		mgr.tiles = append(mgr.tiles, tile)
 		tile.sendToTray()
 		mgr.draw()
-	case msg.Score:
+	case msg.Result:
 		var score Score
 		err := json.Unmarshal(data, &score)
 		if err != nil {
@@ -91,7 +94,7 @@ func (mgr *GameManager) handleSocketMsg(t msg.Type, data []byte) int {
 		mgr.listens.EndGame()
 		DisableGameButtons()
 		mgr.unhighlight()
-		mgr.unmarkAllTiles()
+		mgr.markInvalidAndUnusedTiles(score.Invalid, score.Unconnected, score.Nonwords)
 		mgr.draw()
 		mgr.state = StateGameOver
 	case msg.Invalid:
@@ -103,6 +106,9 @@ func (mgr *GameManager) handleSocketMsg(t msg.Type, data []byte) int {
 		}
 		mgr.markInvalidAndUnusedTiles(score.Invalid, score.Unconnected, score.Nonwords)
 		mgr.draw()
+	case msg.SendBoard:
+		m, _ := msg.NewSocketData(msg.SendBoard, mgr.board.Grid)
+		mgr.websocketSend(m)
 	case msg.GameInfo:
 		var s msg.GameInfoData
 		err := json.Unmarshal(data, &s)

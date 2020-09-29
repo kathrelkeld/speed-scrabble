@@ -163,6 +163,7 @@ func (mgr *GameManager) onKeyDown(event js.Value) {
 	default:
 		if len(k) == 1 && unicode.IsLetter(rune(k[0])) {
 			mgr.findForHighlight(string(unicode.ToUpper(rune(k[0]))))
+			mgr.unmarkAllTiles()
 		}
 	}
 }

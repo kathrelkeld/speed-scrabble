@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	StateInit int = iota
+	StateNoGame int = iota
+	StateHasGame
 	StatePlaying
 	StateGameOver
 )

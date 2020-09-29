@@ -7,11 +7,11 @@ import (
 	"github.com/kathrelkeld/speed-scrabble/msg"
 )
 
-func websocketSendEmpty(t msg.Type) {
-	websocketSend([]byte{byte(t)})
+func (mgr *GameManager) websocketSendEmpty(t msg.Type) {
+	mgr.websocketSend([]byte{byte(t)})
 }
 
-func websocketSend(b []byte) {
+func (mgr *GameManager) websocketSend(b []byte) {
 	v := js.Global().Get("Uint8Array").New(len(b))
 	js.CopyBytesToJS(v, b)
 
