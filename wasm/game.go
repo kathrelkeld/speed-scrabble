@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"syscall/js"
 )
 
 const (
@@ -25,6 +26,7 @@ type GameManager struct {
 	listens   Listeners
 	ctx       Context
 	canvas    Canvas
+	socket    js.Value
 }
 
 // NewGameManager resets the global variable mgr with a new state for a new game.

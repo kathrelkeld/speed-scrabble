@@ -16,11 +16,10 @@ func (mgr *GameManager) websocketSend(b []byte) {
 	js.CopyBytesToJS(v, b)
 
 	fmt.Println("Sending message")
-	soc := js.Global().Get("socket")
-	if !soc.Truthy() {
+	if !mgr.socket.Truthy() {
 		// TODO handle error
 	}
-	soc.Call("send", v)
+	mgr.socket.Call("send", v)
 }
 
 func (mgr *GameManager) websocketGet() js.Func {
@@ -60,9 +59,8 @@ func (mgr *GameManager) newSocketWrapper() js.Func {
 		}
 		host := loc.Get("host").String()
 
-		fmt.Println(wsPrefix + host + "/connect")
 		ws := js.Global().Get("WebSocket").New(wsPrefix + host + "/connect")
-		js.Global().Set("socket", ws)
+		mgr.socket = ws
 		ws.Call("addEventListener", "message", mgr.websocketGet())
 		ws.Call("addEventListener", "open", onOpen)
 		return nil

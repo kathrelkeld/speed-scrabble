@@ -29,7 +29,7 @@ func NewServer() *Server {
 	}
 	fileserver := http.FileServer(http.Dir("public"))
 	redirect := http.RedirectHandler("public/game.html", http.StatusFound)
-	serveMux.Handle("/", redirect)
+	serveMux.Handle("/", http.StripPrefix("/public/", redirect))
 	serveMux.Handle("/public/", http.StripPrefix("/public/", fileserver))
 	serveMux.HandleFunc("/connect", s.newConnection)
 
