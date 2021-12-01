@@ -32,6 +32,7 @@ func NewServer() *Server {
 	serveMux.Handle("/", http.StripPrefix("/public/", redirect))
 	serveMux.Handle("/public/", http.StripPrefix("/public/", fileserver))
 	serveMux.HandleFunc("/connect", s.newConnection)
+	serveMux.HandleFunc("/game", s.newGame)
 
 	return s
 }

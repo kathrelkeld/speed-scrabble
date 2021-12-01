@@ -48,11 +48,7 @@ func (mgr *GameManager) newSocketWrapper() js.Func {
 	})
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		wsPrefix := "ws://"
-
 		loc := js.Global().Get("window").Get("location")
-		if !loc.Truthy() {
-			// TODO handle error
-		}
 		protocol := loc.Get("protocol")
 		if protocol.String() == "https:" {
 			wsPrefix = "wss://"
